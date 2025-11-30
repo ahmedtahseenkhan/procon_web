@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   getUsers,
   createUser,
   updateUser,
   deleteUser,
+  getDevices,
 } from "../../services/api";
 import CustomSelect from "../Layout/CustomSelect";
 import DeleteModal from "../Layout/DeleteModal";
 import TagPicker from "../Layout/TagPicker";
+import { Device } from "../../types";
+
 const userRole = ["Admin", "Manager", "Admin Tech", "Tech"];
 interface User {
   user_id: string;
@@ -27,11 +30,12 @@ interface UserFormData {
   role_name: string;
   company_id: string;
 }
-const groupOptions = ["Group A", "Group B", "Group C", "Group D"];
 
 function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -47,7 +51,22 @@ function UserManagement() {
 
   useEffect(() => {
     fetchUsers();
+    getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
   }, []);
+
+  const uniqueGroups = useMemo(() => {
+    const groups = devices
+      .map((d) => d.group_name)
+      .filter((g): g is string => !!g && g.trim() !== "");
+    return Array.from(new Set(groups)).sort();
+  }, [devices]);
+
+  const uniqueDevices = useMemo(() => {
+    const devs = devices
+      .map((d) => d.nickname || d.device_id || d.serial_number || d.imei)
+      .filter((d): d is string => !!d && d.trim() !== "");
+    return Array.from(new Set(devs)).sort();
+  }, [devices]);
 
   const fetchUsers = async () => {
     try {
@@ -192,15 +211,14 @@ function UserManagement() {
                     {/* ROLE */}
                     <td className="min-w-[160px] px-4 py-4 text-[14px]">
                       <span
-                        className={`px-2 py-1 rounded-[5px] text-sm font-medium bg-[rgba(0,71,241,0.07)] ${
-                          user.role_name === "Admin"
-                            ? " text-[rgba(0,43,183,0.77)]"
-                            : user.role_name === "Manager"
+                        className={`px-2 py-1 rounded-[5px] text-sm font-medium bg-[rgba(0,71,241,0.07)] ${user.role_name === "Admin"
+                          ? " text-[rgba(0,43,183,0.77)]"
+                          : user.role_name === "Manager"
                             ? " text-[rgba(182,0,116,0.84)]"
                             : user.role_name === "Admin Tech"
-                            ? " text-yellow-800"
-                            : " text-[rgba(0,101,20,0.84)]"
-                        }`}
+                              ? " text-yellow-800"
+                              : " text-[rgba(0,101,20,0.84)]"
+                          }`}
                       >
                         {user.role_name}
                       </span>
@@ -425,7 +443,7 @@ function UserManagement() {
                   Groups
                 </label>
                 <TagPicker
-                  options={groupOptions}
+                  options={uniqueGroups}
                   value={selectedGroups}
                   containerClassName="w-full"
                   onChange={(val) => setSelectedGroups(val)}
@@ -436,10 +454,10 @@ function UserManagement() {
                   Select Devices
                 </label>
                 <TagPicker
-                  options={groupOptions}
-                  value={selectedGroups}
+                  options={uniqueDevices}
+                  value={selectedDevices}
                   containerClassName="w-full"
-                  onChange={(val) => setSelectedGroups(val)}
+                  onChange={(val) => setSelectedDevices(val)}
                 />
               </div>
               {/* <div>

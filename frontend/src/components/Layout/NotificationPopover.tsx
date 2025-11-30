@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
+import { getEvents } from "../../services/api";
+import { DeviceEvent } from "../../types";
 
 interface NotificationPopoverProps {
   isOpen: boolean;
@@ -19,46 +22,80 @@ interface NotificationItem {
   group?: string;
 }
 
-// Static notification data
-const staticNotifications: NotificationItem[] = [
-  {
-    id: "1",
-    type: "critical",
-    title: "Payment System Failure",
-    description:
-      "Machine M-001 payment processor offline. Immediate attention required.",
-    timestamp: "2 min Ago",
-    machineId: "M-001",
-    group: "Group A",
-  },
-  {
-    id: "2",
-    type: "warning",
-    title: "Low Cash Balance Alert",
-    description:
-      "Machine M-045 cash dispenser running low. Refill recommended.",
-    timestamp: "2 min Ago",
-    machineId: "M-045",
-    group: "Group B",
-  },
-  {
-    id: "3",
-    type: "info",
-    title: "Scheduled Maintenance",
-    description: "Group A maintenance window starts in 30 minutes.",
-    timestamp: "15 min Ago",
-    machineId: "Group B",
-    group: undefined,
-  },
-];
-
 function NotificationPopover({
   isOpen,
   onClose,
   notificationCount,
 }: NotificationPopoverProps) {
   const [allRead, setAllRead] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [criticalCount, setCriticalCount] = useState(0);
+  const [warningCount, setWarningCount] = useState(0);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // Fetch real alerts
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await getEvents();
+        const events: DeviceEvent[] = response.events || [];
+
+        // Filter unacknowledged critical/high/warning events
+        const alertEvents = events.filter(
+          (e) => !e.is_acknowledged && (e.severity === 'critical' || e.severity === 'high' || e.severity === 'warning')
+        );
+
+        // Count by severity
+        const critical = alertEvents.filter(e => e.severity === 'critical' || e.severity === 'high').length;
+        const warning = alertEvents.filter(e => e.severity === 'warning').length;
+        setCriticalCount(critical);
+        setWarningCount(warning);
+
+        // Map to notification items (show latest 5)
+        const mapped: NotificationItem[] = alertEvents.slice(0, 5).map((e) => {
+          const type: NotificationType =
+            e.severity === 'critical' || e.severity === 'high' ? 'critical' : 'warning';
+
+          const timeAgo = getTimeAgo(new Date(e.event_timestamp));
+
+          return {
+            id: e.event_uuid,
+            type,
+            title: e.event_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            description: e.event_entry || `Event on ${e.device_id}`,
+            timestamp: timeAgo,
+            machineId: e.device_id || e.serial_number,
+            group: undefined, // Could be fetched from device data if needed
+          };
+        });
+
+        setNotifications(mapped);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+
+    if (isOpen) {
+      fetchNotifications();
+    }
+  }, [isOpen]);
+
+  // Helper to calculate time ago
+  const getTimeAgo = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  };
 
   // Close on outside click
   useEffect(() => {
@@ -77,6 +114,11 @@ function NotificationPopover({
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isOpen, onClose]);
+
+  const handleViewAllAlerts = () => {
+    onClose();
+    navigate('/alerts');
+  };
 
   const getNotificationIcon = (type: NotificationType) => {
     if (type === "critical") {
@@ -235,17 +277,17 @@ function NotificationPopover({
       {/* Tabs Section */}
       <div className="box-border flex flex-row items-center px-4 py-2 gap-7 w-[360px] h-9 bg-[#F8FAFB] border-b border-[#E2E8F1]">
         <div className="flex flex-row items-center gap-2.5">
-          {/* Critical Badge - Static */}
+          {/* Critical Badge */}
           <div className="box-border flex flex-row justify-center items-center px-1.5 py-0.5 gap-1.5 h-5 bg-[rgba(255,0,0,0.0313726)] border border-[rgba(223,0,3,0.337255)] rounded">
             <span className="font-medium text-xs  text-[rgba(196,0,6,0.827451)] flex items-center">
-              6 Critical
+              {criticalCount} Critical
             </span>
           </div>
 
-          {/* Warning Badge - Static */}
+          {/* Warning Badge */}
           <div className="box-border flex flex-row justify-center items-center px-1.5 py-0.5 gap-1.5 h-5 bg-[rgba(244,209,0,0.0862745)] border border-[rgba(220,155,0,0.615686)] rounded">
             <span className=" font-medium text-xs  text-[#AB6400] flex items-center">
-              6 Warning
+              {warningCount} Warning
             </span>
           </div>
         </div>
@@ -253,71 +295,80 @@ function NotificationPopover({
 
       {/* Notification List */}
       <div className="flex-1 overflow-y-auto w-full max-h-[345px]">
-        {staticNotifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`box-border flex flex-row items-center px-4 py-2 gap-7  bg-white border-l-2 ${getBorderColor(
-              notification.type
-            )}`}
-          >
-            <div className="flex flex-col items-end gap-3 h-auto flex-1">
-              <div className="flex flex-row items-center gap-3">
-                {/* Icon */}
-                {getNotificationIcon(notification.type)}
+        {notifications.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-400">
+            <p>No new notifications</p>
+          </div>
+        ) : (
+          notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`box-border flex flex-row items-center px-4 py-2 gap-7  bg-white border-l-2 ${getBorderColor(
+                notification.type
+              )}`}
+            >
+              <div className="flex flex-col items-end gap-3 h-auto flex-1">
+                <div className="flex flex-row items-center gap-3">
+                  {/* Icon */}
+                  {getNotificationIcon(notification.type)}
 
-                {/* Content */}
-                <div className="flex flex-col justify-center items-start gap-2 flex-1">
-                  {/* Title and Description */}
-                  <div className="flex flex-col items-start gap-2 ">
-                    <div className=" font-semibold text-sm leading-[18px] tracking-[-0.02em] text-[#111111] flex items-center">
-                      {notification.title}
+                  {/* Content */}
+                  <div className="flex flex-col justify-center items-start gap-2 flex-1">
+                    {/* Title and Description */}
+                    <div className="flex flex-col items-start gap-2 ">
+                      <div className=" font-semibold text-sm leading-[18px] tracking-[-0.02em] text-[#111111] flex items-center">
+                        {notification.title}
+                      </div>
+                      <div className="  font-normal text-sm leading-5 text-[#595D62] flex items-center">
+                        {notification.description}
+                      </div>
                     </div>
-                    <div className="  font-normal text-sm leading-5 text-[#595D62] flex items-center">
-                      {notification.description}
-                    </div>
-                  </div>
 
-                  {/* Timestamp and Tags */}
-                  <div className="flex flex-row justify-between items-start gap-1 w-full">
-                    <span className="font-normal text-sm text-[#717182] text-center flex items-center">
-                      {notification.timestamp}
-                    </span>
-                    <div className="flex flex-row items-center gap-2.5 mb-2 mx-auto">
-                      {notification.machineId && (
-                        <div className="box-border flex flex-row justify-center items-center px-1.5 py-0.5 gap-1.5 w-auto h-5 bg-[rgba(255,255,255,0.9)] border border-[rgba(0,6,46,0.196078)] rounded">
-                          <span className=" font-normal text-xs leading-4 tracking-[0.04px] text-[rgba(0,7,20,0.623529)] flex items-center">
-                            {notification.machineId}
-                          </span>
-                        </div>
-                      )}
-                      {notification.group && (
-                        <div className="box-border flex flex-row justify-center items-center px-1.5 py-0.5 gap-1.5 w-auto h-5 bg-[rgba(255,255,255,0.9)] border border-[rgba(0,6,46,0.196078)] rounded">
-                          <span className=" font-normal text-xs leading-4 tracking-[0.04px] text-[rgba(0,7,20,0.623529)] flex items-center">
-                            {notification.group}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-row items-start gap-2 ml-3">
-                    <button className="flex flex-row justify-center items-center px-2 py-0 gap-1 w-auto h-6 bg-[#8B8D98] rounded hover:opacity-90 transition-opacity">
-                      <span className=" font-medium text-xs leading-4 tracking-[0.04px] text-white flex items-center">
-                        View Details
+                    {/* Timestamp and Tags */}
+                    <div className="flex flex-row justify-between items-start gap-1 w-full">
+                      <span className="font-normal text-sm text-[#717182] text-center flex items-center">
+                        {notification.timestamp}
                       </span>
-                    </button>
-                    <button className="flex flex-row justify-center items-center px-2 py-0 gap-1 w-auto h-6 bg-[rgba(0,0,51,0.0588235)] rounded hover:opacity-90 transition-opacity">
-                      <span className=" font-medium text-xs leading-4 tracking-[0.04px] text-[#60646C] flex items-center">
-                        Dismiss
-                      </span>
-                    </button>
+                      <div className="flex flex-row items-center gap-2.5 mb-2 mx-auto">
+                        {notification.machineId && (
+                          <div className="box-border flex flex-row justify-center items-center px-1.5 py-0.5 gap-1.5 w-auto h-5 bg-[rgba(255,255,255,0.9)] border border-[rgba(0,6,46,0.196078)] rounded">
+                            <span className=" font-normal text-xs leading-4 tracking-[0.04px] text-[rgba(0,7,20,0.623529)] flex items-center">
+                              {notification.machineId}
+                            </span>
+                          </div>
+                        )}
+                        {notification.group && (
+                          <div className="box-border flex flex-row justify-center items-center px-1.5 py-0.5 gap-1.5 w-auto h-5 bg-[rgba(255,255,255,0.9)] border border-[rgba(0,6,46,0.196078)] rounded">
+                            <span className=" font-normal text-xs leading-4 tracking-[0.04px] text-[rgba(0,7,20,0.623529)] flex items-center">
+                              {notification.group}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-row items-start gap-2 ml-3">
+                      <button
+                        onClick={handleViewAllAlerts}
+                        className="flex flex-row justify-center items-center px-2 py-0 gap-1 w-auto h-6 bg-[#8B8D98] rounded hover:opacity-90 transition-opacity"
+                      >
+                        <span className=" font-medium text-xs leading-4 tracking-[0.04px] text-white flex items-center">
+                          View Details
+                        </span>
+                      </button>
+                      <button className="flex flex-row justify-center items-center px-2 py-0 gap-1 w-auto h-6 bg-[rgba(0,0,51,0.0588235)] rounded hover:opacity-90 transition-opacity">
+                        <span className=" font-medium text-xs leading-4 tracking-[0.04px] text-[#60646C] flex items-center">
+                          Dismiss
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Footer */}
@@ -327,7 +378,10 @@ function NotificationPopover({
             Clear all notifications
           </span>
         </button>
-        <button className="flex flex-row justify-center items-center px-2 py-0 gap-1 h-6 rounded hover:opacity-80 transition-opacity">
+        <button
+          onClick={handleViewAllAlerts}
+          className="flex flex-row justify-center items-center px-2 py-0 gap-1 h-6 rounded hover:opacity-80 transition-opacity"
+        >
           <span className=" font-normal text-xs leading-4 tracking-[0.04px] text-[#60646C] flex items-center">
             View all alerts
           </span>

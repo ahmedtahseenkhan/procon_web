@@ -118,14 +118,20 @@ function FinancialReports() {
   }, [filteredEvents, financialEvents]);
 
   const handleExport = async (format: "pdf" | "excel", options: any) => {
-    // TODO: Implement actual export functionality
-    console.log("Exporting report:", format, options);
-    // This would typically call an API endpoint to generate the report
-    alert(
-      `Exporting ${format.toUpperCase()} report with options: ${JSON.stringify(
-        options
-      )}`
-    );
+    try {
+      const blob = await import("../../services/api").then(m => m.exportReport(format, options));
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `financial_report.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export report. Please try again.");
+    }
   };
 
   const recentTransactions = useMemo(() => {
@@ -312,21 +318,19 @@ function FinancialReports() {
         <div className="inline-flex items-center gap-2 bg-[rgba(244,244,245,1)] p-1.5 rounded-[12px]">
           <button
             onClick={() => setActiveTab("overview")}
-            className={`px-4 py-2 text-base font-normal rounded-[12px] transition-colors ${
-              activeTab === "overview"
+            className={`px-4 py-2 text-base font-normal rounded-[12px] transition-colors ${activeTab === "overview"
                 ? "bg-white text-[rgba(17,17,17,1)]"
                 : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
-            }`}
+              }`}
           >
             Overview
           </button>
           <button
             onClick={() => setActiveTab("performance")}
-            className={`px-4 py-2 text-base font-normal rounded-[12px] transition-colors ${
-              activeTab === "performance"
+            className={`px-4 py-2 text-base font-normal rounded-[12px] transition-colors ${activeTab === "performance"
                 ? "bg-white text-[rgba(17,17,17,1)]"
                 : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
-            }`}
+              }`}
           >
             Machine Performance
           </button>

@@ -153,8 +153,8 @@ async function manageActiveAlerts(client, eventUuid, parsed) {
   }
 }
 
-async function syncOnce() {
-  const accountId = process.env.PROCON_ACCOUNT_ID;
+async function _syncAccount(accountId) {
+  if (!accountId) return;
   // Basic approach: last 24h window. In production, store last_row_id/time in api_sync_logs and use it.
   const raw = await proconApi.pollEvents({ accountId });
   const deviceList = await proconApi.pollDevices({ accountId, rowLimit: 1000 });
@@ -197,17 +197,40 @@ async function syncOnce() {
     await client.query(
       `INSERT INTO api_sync_logs(sync_type, account_id, rows_fetched, status, error_message, sync_duration)
        VALUES($1,$2,$3,$4,$5, make_interval(secs => $6))`,
-      ['events', accountId, rowsFetched, 'failed', e.message || 'error', Math.round((Date.now() - startTime)/1000)]
+      ['events', accountId, rowsFetched, 'failed', e.message || 'error', Math.round((Date.now() - startTime) / 1000)]
     );
-    throw e;
+    console.error(`Sync failed for account ${accountId}:`, e.message);
+    return; // Don't throw, just log and return so other accounts can proceed
   } finally {
     client.release();
   }
   await pool.query(
     `INSERT INTO api_sync_logs(sync_type, account_id, rows_fetched, status, sync_duration)
      VALUES($1,$2,$3,$4, make_interval(secs => $5))`,
-    ['events', accountId, rowsFetched, 'success', Math.round((Date.now() - startTime)/1000)]
+    ['events', accountId, rowsFetched, 'success', Math.round((Date.now() - startTime) / 1000)]
   );
+}
+
+async function syncOnce() {
+  try {
+    // 1. Get all companies from DB
+    const { rows } = await pool.query('SELECT company_id FROM companies');
+    const dbCompanyIds = rows.map(r => r.company_id);
+
+    // 2. Add default from env
+    const envAccountId = process.env.PROCON_ACCOUNT_ID;
+    const allAccounts = new Set(dbCompanyIds);
+    if (envAccountId) allAccounts.add(envAccountId);
+
+    // 3. Sync each
+    console.log('Starting sync for accounts:', [...allAccounts]);
+    for (const acc of allAccounts) {
+      await _syncAccount(acc);
+    }
+    console.log('Sync cycle completed');
+  } catch (err) {
+    console.error('Critical error in sync cycle:', err);
+  }
 }
 
 // Backfill a specific date range and ingest into normalized tables
@@ -251,7 +274,7 @@ async function syncWindow({ accountId, startDate, endDate, rowLimitDevices = 100
     await client.query(
       `INSERT INTO api_sync_logs(sync_type, account_id, rows_fetched, status, error_message, sync_duration)
        VALUES($1,$2,$3,$4,$5, make_interval(secs => $6))`,
-      ['events_window', acc, rowsFetched, 'failed', e.message || 'error', Math.round((Date.now() - startTime)/1000)]
+      ['events_window', acc, rowsFetched, 'failed', e.message || 'error', Math.round((Date.now() - startTime) / 1000)]
     );
     throw e;
   } finally {
@@ -260,7 +283,7 @@ async function syncWindow({ accountId, startDate, endDate, rowLimitDevices = 100
   await pool.query(
     `INSERT INTO api_sync_logs(sync_type, account_id, rows_fetched, status, sync_duration)
      VALUES($1,$2,$3,$4, make_interval(secs => $5))`,
-    ['events_window', acc, rowsFetched, 'success', Math.round((Date.now() - startTime)/1000)]
+    ['events_window', acc, rowsFetched, 'success', Math.round((Date.now() - startTime) / 1000)]
   );
 }
 

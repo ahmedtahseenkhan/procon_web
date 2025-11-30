@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, Fragment, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -8,6 +8,8 @@ import {
 } from "@headlessui/react";
 import CustomSelect from "../Layout/CustomSelect";
 import TagPicker from "../Layout/TagPicker";
+import { getDevices } from "../../services/api";
+import { Device } from "../../types";
 
 interface RunReportModalProps {
   isOpen: boolean;
@@ -30,10 +32,6 @@ const durationOptions = ["5", "10", "15"];
 
 const dateRangeOptions = ["Last 3 Days", "Last 7 Days", "Last 30 Days"];
 
-const groupOptions = ["Group A", "Group B", "Group C", "Group D"];
-
-const assetOptions = ["Asset 1", "Asset 2", "Asset 3", "Asset 4"];
-
 const geofenceOptions = ["Geofence 1", "Geofence 2", "Geofence 3"];
 
 export default function RunReportModal({
@@ -48,6 +46,27 @@ export default function RunReportModal({
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [selectedGeofence, setSelectedGeofence] = useState("Geofence 1");
+  const [devices, setDevices] = useState<Device[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+    }
+  }, [isOpen]);
+
+  const uniqueGroups = useMemo(() => {
+    const groups = devices
+      .map((d) => d.group_name)
+      .filter((g): g is string => !!g && g.trim() !== "");
+    return Array.from(new Set(groups)).sort();
+  }, [devices]);
+
+  const uniqueAssets = useMemo(() => {
+    const assets = devices
+      .map((d) => d.nickname || d.device_id || d.serial_number || d.imei)
+      .filter((a): a is string => !!a && a.trim() !== "");
+    return Array.from(new Set(assets)).sort();
+  }, [devices]);
 
   const handleRunReport = () => {
     onClose();
@@ -139,7 +158,7 @@ export default function RunReportModal({
                           Groups
                         </label>
                         <TagPicker
-                          options={groupOptions}
+                          options={uniqueGroups}
                           value={selectedGroups}
                           containerClassName="w-full"
                           onChange={(val) => setSelectedGroups(val)}
@@ -151,7 +170,7 @@ export default function RunReportModal({
                           Assets
                         </label>
                         <TagPicker
-                          options={assetOptions}
+                          options={uniqueAssets}
                           value={selectedAssets}
                           containerClassName="w-full"
                           onChange={(val) => setSelectedAssets(val)}
@@ -196,7 +215,7 @@ export default function RunReportModal({
                           Groups
                         </label>
                         <TagPicker
-                          options={groupOptions}
+                          options={uniqueGroups}
                           value={selectedGroups}
                           containerClassName="w-full"
                           onChange={(val) => setSelectedGroups(val)}
@@ -208,7 +227,7 @@ export default function RunReportModal({
                           Assets
                         </label>
                         <TagPicker
-                          options={assetOptions}
+                          options={uniqueAssets}
                           value={selectedAssets}
                           containerClassName="w-full"
                           onChange={(val) => setSelectedAssets(val)}

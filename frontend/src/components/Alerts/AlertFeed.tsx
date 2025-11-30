@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { getEvents, getDevices } from "../../services/api";
+import { getEvents, getDevices, acknowledgeEvent } from "../../services/api";
 import { DeviceEvent } from "../../types";
 import AlertDetailModal from "./AlertDetailModal";
 import searchIcon from "../../assets/icons/search.svg";
@@ -20,7 +20,6 @@ interface AlertFilters {
   dateRange: string;
 }
 const severityOptions = ["All Severities", "Critical", "Maintenance", "Warning", "Normal"];
-const clustersOptions = ["Group A", "Group B", "Group C", "Group D"];
 
 function AlertFeed() {
   const [events, setEvents] = useState<DeviceEvent[]>([]);
@@ -38,6 +37,7 @@ function AlertFeed() {
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState<DeviceEvent | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -61,6 +61,13 @@ function AlertFeed() {
     const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const uniqueGroups = useMemo(() => {
+    const groups = Object.values(devicesMap)
+      .map((d) => d.group_name)
+      .filter((g): g is string => !!g && g.trim() !== "");
+    return Array.from(new Set(groups)).sort();
+  }, [devicesMap]);
 
   const filteredEvents = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -100,15 +107,25 @@ function AlertFeed() {
         }
       }
 
-      // Date range (hours)
-      if (filters.dateRange !== "all") {
+      // Date range (hours) or specific date
+      if (selectedDate) {
+        const dt = new Date(e.event_timestamp);
+        // Check if same day
+        if (
+          dt.getDate() !== selectedDate.getDate() ||
+          dt.getMonth() !== selectedDate.getMonth() ||
+          dt.getFullYear() !== selectedDate.getFullYear()
+        ) {
+          return false;
+        }
+      } else if (filters.dateRange !== "all") {
         const dt = new Date(e.event_timestamp);
         const hours = parseInt(filters.dateRange);
         if (hours > 0 && dt < new Date(Date.now() - hours * 60 * 60 * 1000)) return false;
       }
       return true;
     });
-  }, [events, filters, search, selectedClusters, devicesMap]);
+  }, [events, filters, search, selectedClusters, devicesMap, selectedDate]);
 
   const totalPages = Math.max(Math.ceil(filteredEvents.length / pageSize), 1);
   const pageEvents = useMemo(() => {
@@ -117,8 +134,8 @@ function AlertFeed() {
   }, [filteredEvents, page, pageSize]);
 
   const rowBgClass = (sev: string, cat?: string) => {
-    const s = String(sev||'').toLowerCase();
-    const c = String(cat||'').toLowerCase();
+    const s = String(sev || '').toLowerCase();
+    const c = String(cat || '').toLowerCase();
     if (s === 'critical') return 'bg-[rgba(254,236,237,1)]';
     if (c === 'maintenance') return 'bg-[rgba(250,245,255,1)]';
     if (s === 'warning' || s === 'high') return 'bg-[rgba(255,246,234,1)]';
@@ -126,11 +143,11 @@ function AlertFeed() {
   };
 
   const timeAgo = (iso: string) => {
-    const d = new Date(iso); const mins = Math.floor((Date.now()-d.getTime())/60000);
+    const d = new Date(iso); const mins = Math.floor((Date.now() - d.getTime()) / 60000);
     if (mins < 1) return 'just now';
     if (mins < 60) return `${mins} min ago`;
-    const hrs = Math.floor(mins/60); if (hrs < 24) return `${hrs} hr${hrs>1?'s':''} ago`;
-    const days = Math.floor(hrs/24); return `${days} day${days>1?'s':''} ago`;
+    const hrs = Math.floor(mins / 60); if (hrs < 24) return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hrs / 24); return `${days} day${days > 1 ? 's' : ''} ago`;
   };
 
   const severityCounts = useMemo(() => {
@@ -140,84 +157,27 @@ function AlertFeed() {
     }, {} as Record<string, number>);
   }, [events]);
 
-  const uniqueEventTypes = useMemo(() => {
-    return [...new Set(events.map((e) => e.event_type))].sort();
-  }, [events]);
-
-  const uniqueDeviceIds = useMemo(() => {
-    return [...new Set(events.map((e) => e.device_id))].sort();
-  }, [events]);
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return "severity-critical";
-      case "high":
-        return "severity-high";
-      case "medium":
-        return "severity-medium";
-      case "low":
-        return "severity-low";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return (
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-              clipRule="evenodd"
-            />
-          </svg>
-        );
-      case "high":
-        return (
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-              clipRule="evenodd"
-            />
-          </svg>
-        );
-      default:
-        return (
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        );
-    }
-  };
-
   const handleAlertClick = (event: DeviceEvent) => {
     setSelectedAlert(event);
     setShowModal(true);
   };
 
   const handleAcknowledge = async (eventId: string) => {
-    // TODO: Implement acknowledge API call
-    console.log("Acknowledging event:", eventId);
-    // Update the event in the local state
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.event_id === eventId ? { ...e, is_acknowledged: true } : e
-      )
-    );
+    try {
+      await acknowledgeEvent(eventId);
+      console.log("Acknowledging event:", eventId);
+      // Update the event in the local state
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.event_id === eventId ? { ...e, is_acknowledged: true } : e
+        )
+      );
+      setShowModal(false);
+      setSelectedAlert(null);
+    } catch (error) {
+      console.error("Failed to acknowledge:", error);
+      alert("Failed to acknowledge event");
+    }
   };
 
   const handleResolve = async (eventId: string) => {
@@ -263,7 +223,7 @@ function AlertFeed() {
         </h3>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <DatePicker />
+            <DatePicker selected={selectedDate} onChange={(date) => setSelectedDate(date)} />
             <div className="relative w-[231px]">
               <img
                 src={searchIcon}
@@ -275,17 +235,17 @@ function AlertFeed() {
                 placeholder="search by alerts"
                 className="w-full h-[40px] pl-10 pr-4 py-2 rounded border border-[rgba(235,235,235,1)] bg-white outline-none focus:outline-none focus:ring-0 focus:border-[rgba(235,235,235,1)] text-sm"
                 value={search}
-                onChange={(e)=>{ setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
           </div>
           <CustomSelect
             options={severityOptions}
-            value={filters.severity === 'all' ? 'All Severities' : (filters.severity === 'maintenance' ? 'Maintenance' : (filters.severity.charAt(0).toUpperCase()+filters.severity.slice(1)))}
+            value={filters.severity === 'all' ? 'All Severities' : (filters.severity === 'maintenance' ? 'Maintenance' : (filters.severity.charAt(0).toUpperCase() + filters.severity.slice(1)))}
             multiSelect={false}
             onChange={(val) => {
               const sel = Array.isArray(val) ? val[0] : val;
-              const map: Record<string,string> = {
+              const map: Record<string, string> = {
                 'All Severities': 'all',
                 'All': 'all',
                 'Critical': 'critical',
@@ -293,13 +253,13 @@ function AlertFeed() {
                 'Warning': 'warning',
                 'Normal': 'normal',
               };
-              setFilters((f)=>({ ...f, severity: map[sel] ?? 'all' }));
+              setFilters((f) => ({ ...f, severity: map[sel] ?? 'all' }));
               setPage(1);
             }}
           />
 
           <CustomSelect
-            options={clustersOptions}
+            options={uniqueGroups}
             firstOption="All Clusters"
             multiSelect={true}
             value={selectedClusters}
@@ -343,21 +303,25 @@ function AlertFeed() {
               {pageEvents.map((ev: any) => {
                 const machine = ev.device_id || ev.serial_number || ev.imei;
                 const cluster = devicesMap[machine]?.group_name || '-';
-                const pill = ev.category && ev.category.toLowerCase() === 'maintenance' ? 'Maintenance' : (String(ev.severity||'').toUpperCase());
+                const pill = ev.category && ev.category.toLowerCase() === 'maintenance' ? 'Maintenance' : (String(ev.severity || '').toUpperCase());
                 return (
                   <tr key={ev.event_uuid || `${machine}-${ev.event_timestamp}`}
-                      className={`w-full min-h-[72px] border-t border-[rgba(0,0,47,0.15)] py-2 ${rowBgClass(ev.severity, ev.category)}`}>
+                    className={`w-full min-h-[72px] border-t border-[rgba(0,0,47,0.15)] py-2 ${rowBgClass(ev.severity, ev.category)}`}>
                     <td className="py-4 px-4 text-[16px] font-normal leading-[24px] tracking-[0.5px] text-gray-900">
                       <div className="flex items-center space-x-2">
                         <span>{machine}</span>
-                        {(() => { const sk = String(ev.severity||'').toLowerCase(); const sevForClass = sk === 'warning' ? 'high' : sk; return (
-                        <span className={`px-[8px] py-[4px] rounded text-[10px] font-medium leading-[12px] tracking-[0.5px] ${getSeverityColor(sevForClass)}`}>
-                          {pill}
-                        </span> );})()}
+                        {(() => {
+                          const sk = String(ev.severity || '').toLowerCase(); const sevForClass = sk === 'warning' ? 'high' : sk; return (
+                            <span className={`px-[8px] py-[4px] rounded text-[10px] font-medium leading-[12px] tracking-[0.5px] ${getSeverityColor(sevForClass)}`}>
+                              {pill}
+                            </span>);
+                        })()}
                       </div>
                     </td>
                     <td className="py-4 px-4 text-[16px] font-normal leading-[24px] tracking-[0.5px] text-gray-900">
-                      {ev.event_id || ev.event_entry}
+                      <div className="cursor-pointer hover:underline" onClick={() => handleAlertClick(ev)}>
+                        {ev.event_id || ev.event_entry}
+                      </div>
                     </td>
                     <td className="py-4 px-4 text-[16px] font-normal leading-[24px] tracking-[0.5px] text-gray-900">
                       {cluster}
@@ -380,8 +344,8 @@ function AlertFeed() {
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
           <div className="space-x-2">
-            <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
-            <button disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="px-3 py-1 border rounded disabled:opacity-50">Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-3 py-1 border rounded disabled:opacity-50">Prev</button>
+            <button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="px-3 py-1 border rounded disabled:opacity-50">Next</button>
           </div>
         </div>
       </div>

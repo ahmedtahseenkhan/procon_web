@@ -1,3 +1,7 @@
+import { useEffect, useState, useMemo } from "react";
+import { getDevices } from "../../services/api";
+import { Device } from "../../types";
+
 interface FiltersSectionProps {
   onSearchChange: (value: string) => void
   onSeverityChange: (value: string) => void
@@ -19,11 +23,24 @@ function FiltersSection({
   groupValue,
   dateValue
 }: FiltersSectionProps) {
+  const [devices, setDevices] = useState<Device[]>([]);
+
+  useEffect(() => {
+    getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+  }, []);
+
+  const uniqueGroups = useMemo(() => {
+    const groups = devices
+      .map((d) => d.group_name)
+      .filter((g): g is string => !!g && g.trim() !== "");
+    return Array.from(new Set(groups)).sort();
+  }, [devices]);
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">Filters & Search</h3>
-        
+
         <div className="flex items-center space-x-4">
           {/* Calendar Icon */}
           <button className="p-2 text-gray-600 hover:text-gray-900 transition-colors">
@@ -68,10 +85,11 @@ function FiltersSection({
             className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <option value="all">All Groups</option>
-            <option value="A">Group A</option>
-            <option value="B">Group B</option>
-            <option value="C">Group C</option>
-            <option value="D">Group D</option>
+            {uniqueGroups.map((group) => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
           </select>
         </div>
       </div>

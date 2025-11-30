@@ -5,10 +5,25 @@ import search from "../../assets/icons/search.svg";
 import CustomSelect from "../Layout/CustomSelect";
 import download from "../../assets/icons/download.svg";
 const severityOptions = ["All Severities", "Critical", "High", "Medium", "Low"];
-const clustersOptions = ["Group A", "Group B", "Group C", "Group D"];
+
+import { useEffect, useState, useMemo } from "react";
+import { getDevices } from "../../services/api";
+import { Device } from "../../types";
 
 function GeofenceActivity() {
   const navigate = useNavigate();
+  const [devices, setDevices] = useState<Device[]>([]);
+
+  useEffect(() => {
+    getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+  }, []);
+
+  const uniqueGroups = useMemo(() => {
+    const groups = devices
+      .map((d) => d.group_name)
+      .filter((g): g is string => !!g && g.trim() !== "");
+    return Array.from(new Set(groups)).sort();
+  }, [devices]);
 
   return (
     <div className="space-y-6">
@@ -77,7 +92,7 @@ function GeofenceActivity() {
           />
 
           <CustomSelect
-            options={clustersOptions}
+            options={uniqueGroups}
             firstOption="All Clusters"
             multiSelect={true}
             onChange={(selected) => console.log("Selected:", selected)}

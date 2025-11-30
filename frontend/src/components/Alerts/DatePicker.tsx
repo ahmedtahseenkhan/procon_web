@@ -2,8 +2,18 @@ import React, { useState, forwardRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import calendar from "../../assets/icons/calendar.svg";
-export default function TailwindDatepicker() {
-  const [startDate, setStartDate] = useState<Date | null>(null);
+interface DatePickerProps {
+  selected?: Date | null;
+  onChange?: (date: Date | null) => void;
+}
+
+export default function TailwindDatepicker({ selected, onChange }: DatePickerProps) {
+  const [internalDate, setInternalDate] = useState<Date | null>(null);
+
+  const handleChange = (date: Date | null) => {
+    setInternalDate(date);
+    if (onChange) onChange(date);
+  };
 
   // Custom input to wrap the SVG inside a div
   const CustomInput = forwardRef<
@@ -24,8 +34,8 @@ export default function TailwindDatepicker() {
   return (
     <div className="inline-block">
       <DatePicker
-        selected={startDate}
-        onChange={(date: Date) => setStartDate(date)}
+        selected={selected !== undefined ? selected : internalDate}
+        onChange={handleChange}
         customInput={<CustomInput />}
         popperClassName="tailwind-datepicker"
       />

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import CustomSelect from "../Layout/CustomSelect";
+import { getDevices } from "../../services/api";
+import { Device } from "../../types";
 
 interface MachineData {
   id: string;
@@ -77,13 +79,6 @@ const machineData: MachineData[] = [
   },
 ];
 
-const groupOptions = [
-  "All Machines",
-  "Group A",
-  "Group B",
-  "Group C",
-  "Group D",
-];
 const statusOptions = ["All Status", "Active", "Inactive", "Maintenance"];
 const sortOptions = ["Name", "Uptime", "Efficiency", "Revenue"];
 
@@ -91,6 +86,18 @@ export default function MachinePerformanceTable() {
   const [selectedGroup, setSelectedGroup] = useState("All Machines");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
   const [sortBy, setSortBy] = useState("Name");
+  const [devices, setDevices] = useState<Device[]>([]);
+
+  useEffect(() => {
+    getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+  }, []);
+
+  const uniqueGroups = useMemo(() => {
+    const groups = devices
+      .map((d) => d.group_name)
+      .filter((g): g is string => !!g && g.trim() !== "");
+    return ["All Machines", ...Array.from(new Set(groups)).sort()];
+  }, [devices]);
 
   return (
     <div className="animate-fade-in animate-slide-in-from-bottom-4">
@@ -102,7 +109,7 @@ export default function MachinePerformanceTable() {
           </h3>
           <div className="flex items-center space-x-3">
             <CustomSelect
-              options={groupOptions}
+              options={uniqueGroups}
               value={selectedGroup}
               multiSelect={false}
               onChange={(val) => setSelectedGroup(val as string)}

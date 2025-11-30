@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
-import { getDevices, getEvents } from "../../services/api";
+import { getDevices, getEvents, sendDeviceCommand } from "../../services/api";
+
+
 import { Device, DeviceEvent } from "../../types";
 import MFAConfirmation from "../Common/MFAConfirmation";
 import MachineDetailDrawer from "./MachineDetailDrawer";
@@ -38,7 +40,6 @@ interface MachineDetail {
   }>;
 }
 const severityOptions = ["All Severities", "Critical", "High", "Medium", "Low"];
-const clustersOptions = ["Group A", "Group B", "Group C", "Group D"];
 function DeviceManagement() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [events, setEvents] = useState<DeviceEvent[]>([]);
@@ -56,6 +57,9 @@ function DeviceManagement() {
   const [mapSelectedDevice, setMapSelectedDevice] = useState<Device | null>(
     null
   );
+
+  const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState("All Statuses");
 
   const { isLoaded: isMapLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
@@ -96,7 +100,8 @@ function DeviceManagement() {
     if (!selectedDevice || !mfaAction) return;
 
     try {
-      // TODO: Implement actual device command API call
+      await sendDeviceCommand(selectedDevice.device_id, mfaAction);
+
       console.log(
         `MFA confirmed for ${mfaAction} device ${selectedDevice.device_id} with OTP: ${otp}`
       );
@@ -113,44 +118,45 @@ function DeviceManagement() {
       setMachineDetail((prev) =>
         prev
           ? {
-              ...prev,
-              status: mfaAction === "enable" ? "operational" : "offline",
-            }
+            ...prev,
+            status: mfaAction === "enable" ? "operational" : "offline",
+          }
           : prev
       );
     } catch (error) {
       console.error("Device command failed:", error);
+      alert("Failed to send command");
     }
   };
 
   const openDetail = (id: string, preset: Partial<MachineDetail>) => {
     const device = devices.find((d) => d.device_id === id) || null;
     setSelectedDevice(device);
+
+    // Find real stats if available
+    const deviceEvents = events.filter(e => e.device_id === id).sort(
+      (a, b) =>
+        new Date(b.event_timestamp).getTime() -
+        new Date(a.event_timestamp).getTime()
+    );
+
     const detail: MachineDetail = {
       id,
-      name: preset.name || `Gaming Terminal ${id.replace("M-", "")}`,
-      serialNumber: preset.serialNumber || "AKTDUM-8079843539",
+      name: device?.nickname || `Gaming Terminal ${id.replace("M-", "")}`,
+      serialNumber: device?.serial_number || preset.serialNumber || "Unknown",
       reference: preset.reference || "Fireball",
-      status: preset.status || "operational",
+      status: device?.is_online ? "operational" : "offline",
       uptime: preset.uptime ?? 98.5,
-      temperature: preset.temperature ?? 72,
-      network: preset.network || "connected",
+      temperature: preset.temperature ?? 72, // Assuming a default or static temperature for now
+      network: device?.is_online ? "connected" : "disconnected",
       geofence: preset.geofence || "Active",
-      revenue24h: preset.revenue24h ?? 8500,
-      location:
-        preset.location || "200 South Front Street Clearfield, PA 16830 US",
-      recentEvents: preset.recentEvents || [
-        {
-          timestamp: "10:09 PM",
-          event: "Power Reconnected",
-          location: "200 South Front Street, Clearfield, Pennsylvania 16830",
-        },
-        {
-          timestamp: "10:01 PM",
-          event: "Connection Lost",
-          location: "200 South Front Street, Clearfield, Pennsylvania 16830",
-        },
-      ],
+      revenue24h: preset.revenue24h ?? 0, // This will be calculated in devicesWithStats
+      location: device?.full_address || preset.location || "Unknown Location",
+      recentEvents: deviceEvents.slice(0, 5).map(e => ({
+        timestamp: new Date(e.event_timestamp).toLocaleTimeString(),
+        event: e.event_type,
+        location: device?.full_address || "Unknown"
+      }))
     };
     setMachineDetail(detail);
     setDetailOpen(true);
@@ -181,14 +187,32 @@ function DeviceManagement() {
     });
   }, [devices, events]);
 
+  const uniqueGroups = useMemo(() => {
+    const groups = devices
+      .map((d) => d.group_name)
+      .filter((g): g is string => !!g && g.trim() !== "");
+    return Array.from(new Set(groups)).sort();
+  }, [devices]);
+
   const filteredDevices = useMemo(() => {
     let filtered = devicesWithStats;
 
     // Filter by status
-    if (filter === "online") {
-      filtered = filtered.filter((d) => d.is_online);
-    } else if (filter === "offline") {
-      filtered = filtered.filter((d) => !d.is_online);
+    if (selectedStatus !== "All Statuses") {
+      if (selectedStatus === "Online") {
+        filtered = filtered.filter((d) => d.is_online);
+      } else if (selectedStatus === "Offline") {
+        filtered = filtered.filter((d) => !d.is_online);
+      } else if (selectedStatus === "Error") {
+        // Assuming 'status' field might contain 'error' or logic for error
+        // For now, treating 'Error' as 'Offline' based on header badge
+        filtered = filtered.filter(d => !d.is_online);
+      }
+    }
+
+    // Filter by Cluster (Group)
+    if (selectedClusters.length > 0 && !selectedClusters.includes("All Clusters")) {
+      filtered = filtered.filter(d => d.group_name && selectedClusters.includes(d.group_name));
     }
 
     // Filter by search term
@@ -203,10 +227,10 @@ function DeviceManagement() {
     }
 
     return filtered;
-  }, [devicesWithStats, filter, searchTerm]);
+  }, [devicesWithStats, selectedStatus, selectedClusters, searchTerm]);
 
   const onlineCount = devices.filter((d) => d.is_online).length;
-  const offlineCount = devices.filter((d) => !d.is_online).length;
+  const offlineCount = devices.filter((d) => !d.is_online).length; // Simplified error count
   const totalRevenue = devicesWithStats.reduce((sum, d) => sum + d.revenue, 0);
 
   if (loading) {
@@ -231,30 +255,28 @@ function DeviceManagement() {
             <div className="inline-flex items-center gap-2 bg-[rgba(244,244,245,1)] p-1 rounded-[12px]">
               <button
                 onClick={() => setActiveTab("grid")}
-                className={`px-5 py-1 text-base font-normal rounded-[12px] transition-colors ${
-                  activeTab === "grid"
-                    ? "bg-white text-[rgba(17,17,17,1)]"
-                    : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
-                }`}
+                className={`px-5 py-1 text-base font-normal rounded-[12px] transition-colors ${activeTab === "grid"
+                  ? "bg-white text-[rgba(17,17,17,1)]"
+                  : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
+                  }`}
               >
                 Grid
               </button>
               <button
                 onClick={() => setActiveTab("map")}
-                className={`px-5 py-1 text-base font-normal rounded-[12px] transition-colors ${
-                  activeTab === "map"
-                    ? "bg-white text-[rgba(17,17,17,1)]"
-                    : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
-                }`}
+                className={`px-5 py-1 text-base font-normal rounded-[12px] transition-colors ${activeTab === "map"
+                  ? "bg-white text-[rgba(17,17,17,1)]"
+                  : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
+                  }`}
               >
                 Map
               </button>
             </div>
             <div className="inline-flex items-center gap-2 rounded-md   bg-[rgba(0,163,47,0.04)] border border-[rgba(0,145,64,0.44)] px-[10px] py-[6px] font-medium text-[14px] leading-none text-[rgba(0,113,63,0.87)]">
-              2 Online
+              {onlineCount} Online
             </div>
             <div className="inline-flex items-center gap-2 rounded-md  border border-[rgba(223,0,3,0.34)] bg-[rgba(255,0,0,0.03)] px-[10px] py-[6px] font-medium text-[14px] leading-none text-red-700">
-              2 Error
+              {offlineCount} Offline
             </div>
           </div>
         </div>
@@ -266,16 +288,16 @@ function DeviceManagement() {
           </h3>
           <div className="flex items-center space-x-4">
             <CustomSelect
-              options={clustersOptions}
+              options={uniqueGroups}
               firstOption="All Clusters"
               multiSelect={true}
-              onChange={(selected) => console.log("Selected:", selected)}
+              onChange={(selected) => setSelectedClusters(Array.isArray(selected) ? selected : [selected])}
             />
             <CustomSelect
-              options={severityOptions}
-              value="All Statuses"
+              options={["All Statuses", "Online", "Offline"]}
+              value={selectedStatus}
               multiSelect={false}
-              onChange={(val) => console.log("Selected:", val)}
+              onChange={(val) => setSelectedStatus(val as string)}
             />
           </div>
         </div>
@@ -285,643 +307,159 @@ function DeviceManagement() {
         {/* Tab Content */}
         {activeTab === "grid" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Online Machine Card */}
-            <div className="rounded-[8px] border border-[rgba(185,248,207,1)] gap-6 bg-[rgba(243,255,248,1)] p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-medium">M-001</h3>
-                  <p className="text-[rgba(0,7,20,0.62)] font-normal text-sm ">
-                    Gaming Terminal 001
-                  </p>
+            {filteredDevices.map((device) => (
+              <div key={device.device_id} className={`rounded-[8px] border gap-6 p-6 ${device.is_online ? 'border-[rgba(185,248,207,1)] bg-[rgba(243,255,248,1)]' : 'bg-[rgba(255,247,247,1)] border-[rgba(0,0,47,0.15)]'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-medium">{device.nickname || device.device_id}</h3>
+                    <p className="text-[rgba(0,7,20,0.62)] font-normal text-sm ">
+                      {device.serial_number}
+                    </p>
+                  </div>
+                  <span className={`px-[7px] py-[2px] rounded text-xs font-medium ${device.is_online ? 'bg-[rgba(48,164,108,1)] text-white' : 'bg-[rgba(229,72,77,1)] text-white'}`}>
+                    {device.is_online ? 'Online' : 'Offline'}
+                  </span>
                 </div>
-                <span className="bg-[rgba(48,164,108,1)] text-white px-[7px] py-[2px] rounded text-xs font-medium">
-                  Online
-                </span>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-7">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Location
-                      </span>
-                      <p className="font-medium text-[14px]">
-                        Floor 1, Section A
-                      </p>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-7">
+                    <div className="flex items-center space-x-2">
+                      <svg
+                        className="w-5 h-5 text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                      <div>
+                        <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
+                          Location
+                        </span>
+                        <p className="font-medium text-[14px] truncate w-24">
+                          {device.full_address || 'Unknown'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-5 h-5 text-gray-600"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"
+                        />
+                      </svg>
+
+                      <div>
+                        <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
+                          Group
+                        </span>
+                        <p className="font-medium text-[14px]">{device.group_name || 'None'}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5 text-gray-600"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"
-                      />
-                    </svg>
 
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Group
-                      </span>
-                      <p className="font-medium text-[14px]">Group A</p>
+                  <div className="flex items-center space-x-[65px]">
+                    <div className="flex items-center space-x-2">
+                      <svg
+                        className={`w-5 h-5 ${device.is_online ? 'text-green-500' : 'text-red-500'}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
+                        />
+                      </svg>
+                      <div>
+                        <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
+                          Network
+                        </span>
+                        <p className="font-medium text-[14px]">{device.is_online ? 'Connected' : 'Disconnected'}</p>
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-[65px]">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
-                      />
-                    </svg>
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Network
-                      </span>
-                      <p className="font-medium text-[14px]">Connected</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <img src={thermometer} alt="" />
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Temperature
-                      </span>
-                      <p className="font-medium text-[14px]  text-green-500">
-                        68°F
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 w-full bg-[rgba(255,255,255,0.14)] border border-[rgba(239,239,239,1)] rounded-[5px] p-3 space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                    Revenue (24h)
-                  </p>
-                  <p className="text-[14px] font-medium">$8,500</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">Uptime</p>
-                  <p className="text-[14px] font-medium">98.5%</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                    Last Seen
-                  </p>
-                  <p className="text-[14px] font-medium">2 mins ago</p>
-                </div>
-              </div>
-              <div className="h-[1px] w-full bg-[rgba(202,213,226,1)] my-5"></div>
-              <div className="mt-4 flex space-x-2">
-                <button
-                  className="w-[268px] h-[40px] rounded-[8px] gap-3 px-[4px)] font-medium text-[rgba(96,100,108,1)] bg-[rgba(0,0,51,0.06)]"
-                  onClick={() =>
-                    openDetail("M-001", {
-                      name: "Mobile Details - M-001",
-                      status: "operational",
-                      temperature: 68,
-                      network: "connected",
-                    })
-                  }
-                >
-                  Details
-                </button>
-                <button
-                  className="w-[84px] h-[40px] rounded-[8px] gap-3 font-medium text-white px-[4px] opacity-100 bg-[rgba(139,141,152,1)]"
-                  onClick={() =>
-                    handleMachineControl(
-                      selectedDevice || {
-                        device_id: "M-001",
-                        imei: "",
-                        serial_number: "",
-                        is_online: true,
-                      },
-                      "enable"
-                    )
-                  }
-                >
-                  Enable
-                </button>
-              </div>
-            </div>
-
-            {/* Maintenance Machine Card */}
-            <div className="rounded-[8px] bg-[rgba(254,252,232,0.4)] border border-[rgba(254,241,134,1)] gap-6 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-medium">M-045</h3>
-                  <p className="text-[rgba(0,7,20,0.62)] font-normal text-sm ">
-                    Gaming Terminal 045
-                  </p>
-                </div>
-                <span className="bg-[rgba(255,197,61,1)] text-[rgba(0,7,20,0.62)] px-[7px] py-[2px] rounded text-xs font-medium">
-                  Maintenance
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center space-x-7">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Location
-                      </span>
-                      <p className="font-medium text-[14px]">
-                        Floor 1, Section A
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5 text-gray-600"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"
-                      />
-                    </svg>
-
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Group
-                      </span>
-                      <p className="font-medium text-[14px]">Group A</p>
+                    <div className="flex items-center space-x-2">
+                      <img src={device.is_online ? thermometer : thermometerred} alt="" />
+                      <div>
+                        <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
+                          Temperature
+                        </span>
+                        <p className={`font-medium text-[14px] ${device.is_online ? 'text-green-500' : 'text-red-500'}`}>
+                          72°F
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-[65px]">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-[rgba(209,135,0,1)]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
-                      />
-                    </svg>
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Network
-                      </span>
-                      <p className="font-medium text-[14px]">Week</p>
-                    </div>
+                <div className="mt-4 w-full bg-[rgba(255,255,255,0.14)] border border-[rgba(239,239,239,1)] rounded-[5px] p-3 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
+                      Revenue (24h)
+                    </p>
+                    <p className="text-[14px] font-medium">${device.revenue.toFixed(2)}</p>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <img src={thermometeryellow} alt="" />
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Temperature
-                      </span>
-                      <p className="font-medium text-[14px] text-[rgba(209,135,0,1)]">
-                        68°F
-                      </p>
-                    </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] text-[rgba(0,7,20,0.62)]">Uptime</p>
+                    <p className="text-[14px] font-medium">98.5%</p>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
+                      Last Seen
+                    </p>
+                    <p className="text-[14px] font-medium">{device.lastEventTime ? new Date(device.lastEventTime).toLocaleTimeString() : 'Never'}</p>
                   </div>
                 </div>
-              </div>
-
-              <div className="mt-4 w-full bg-[rgba(255,255,255,0.14)] border border-[rgba(239,239,239,1)] rounded-[5px] p-3 space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                    Revenue (24h)
-                  </p>
-                  <p className="text-[14px] font-medium">$8,500</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">Uptime</p>
-                  <p className="text-[14px] font-medium">98.5%</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                    Last Seen
-                  </p>
-                  <p className="text-[14px] font-medium">2 mins ago</p>
-                </div>
-              </div>
-              <div className="h-[1px] w-full bg-[rgba(202,213,226,1)] my-5"></div>
-
-              <div className="mt-4 flex space-x-2">
-                <button
-                  className="w-[268px] h-[40px] rounded-[8px] gap-3 px-[4px)] font-medium text-[rgba(96,100,108,1)] bg-[rgba(0,0,51,0.06)]"
-                  onClick={() =>
-                    openDetail("M-045", {
-                      name: "Mobile Details - M-045",
-                      status: "maintenance",
-                      temperature: 78,
-                      network: "weak",
-                    })
-                  }
-                >
-                  Details
-                </button>
-                <button
-                  className="w-[84px] h-[40px] rounded-[8px] gap-3 font-medium text-white px-[4px] opacity-100 bg-[rgba(139,141,152,1)]"
-                  onClick={() =>
-                    handleMachineControl(
-                      selectedDevice || {
-                        device_id: "M-045",
-                        imei: "",
-                        serial_number: "",
-                        is_online: true,
-                      },
-                      "enable"
-                    )
-                  }
-                >
-                  Enable
-                </button>
-              </div>
-            </div>
-
-            {/* Error Machine Card */}
-            <div className="rounded-[8px] bg-[rgba(255,247,247,1)] border border-[rgba(0,0,47,0.15)] gap-6 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-medium">M-023</h3>
-                  <p className="text-[rgba(0,7,20,0.62)] font-normal text-sm ">
-                    Gaming Terminal 023
-                  </p>
-                </div>
-                <span className="bg-[rgba(229,72,77,1)] text-white px-[7px] py-[2px] rounded text-xs font-medium">
-                  Error
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center space-x-7">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Location
-                      </span>
-                      <p className="font-medium text-[14px]">
-                        Floor 1, Section A
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5 text-gray-600"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"
-                      />
-                    </svg>
-
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Group
-                      </span>
-                      <p className="font-medium text-[14px]">Group A</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-[65px]">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-[rgba(229,72,77,1)]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
-                      />
-                    </svg>
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Network
-                      </span>
-                      <p className="font-medium text-[14px]">Disconnected</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <img src={thermometerred} alt="" />
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Temperature
-                      </span>
-                      <p className="font-medium text-[14px] text-[rgba(229,72,77,1)]">
-                        68°F
-                      </p>
-                    </div>
-                  </div>
+                <div className="h-[1px] w-full bg-[rgba(202,213,226,1)] my-5"></div>
+                <div className="mt-4 flex space-x-2">
+                  <button
+                    className="w-[268px] h-[40px] rounded-[8px] gap-3 px-[4px)] font-medium text-[rgba(96,100,108,1)] bg-[rgba(0,0,51,0.06)]"
+                    onClick={() =>
+                      openDetail(device.device_id, {
+                        name: `Mobile Details - ${device.nickname || device.device_id}`,
+                        status: device.is_online ? "operational" : "offline",
+                        temperature: 72,
+                        network: device.is_online ? "connected" : "disconnected",
+                        revenue24h: device.revenue
+                      })
+                    }
+                  >
+                    Details
+                  </button>
+                  <button
+                    className={`w-[84px] h-[40px] rounded-[8px] gap-3 font-medium text-white px-[4px] opacity-100 ${device.is_online ? 'bg-[rgba(139,141,152,1)]' : 'bg-[rgba(48,164,108,1)]'}`}
+                    onClick={() =>
+                      handleMachineControl(
+                        device,
+                        device.is_online ? "disable" : "enable"
+                      )
+                    }
+                  >
+                    {device.is_online ? "Disable" : "Enable"}
+                  </button>
                 </div>
               </div>
-
-              <div className="mt-4 w-full bg-[rgba(255,255,255,0.14)] border border-[rgba(239,239,239,1)] rounded-[5px] p-3 space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                    Revenue (24h)
-                  </p>
-                  <p className="text-[14px] font-medium">$8,500</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">Uptime</p>
-                  <p className="text-[14px] font-medium">98.5%</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                    Last Seen
-                  </p>
-                  <p className="text-[14px] font-medium">2 mins ago</p>
-                </div>
-              </div>
-              <div className="h-[1px] w-full bg-[rgba(202,213,226,1)] my-5"></div>
-
-              <div className="mt-4 flex space-x-2">
-                <button
-                  className="w-[268px] h-[40px] rounded-[8px] gap-3 px-[4px)] font-medium text-[rgba(96,100,108,1)] bg-[rgba(0,0,51,0.06)]"
-                  onClick={() =>
-                    openDetail("M-023", {
-                      name: "Mobile Details - M-023",
-                      status: "offline",
-                      temperature: 72,
-                      network: "disconnected",
-                    })
-                  }
-                >
-                  Details
-                </button>
-                <button
-                  className="w-[84px] h-[40px] rounded-[8px] gap-3 font-medium text-white px-[4px] opacity-100 bg-[rgba(229,72,77,1)]"
-                  onClick={() =>
-                    handleMachineControl(
-                      selectedDevice || {
-                        device_id: "M-023",
-                        imei: "",
-                        serial_number: "",
-                        is_online: false,
-                      },
-                      "disable"
-                    )
-                  }
-                >
-                  Disable
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-[8px] bg-[rgba(249,250,251,1)] border border-[rgba(0,0,47,0.15)] gap-6 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-medium">M-023</h3>
-                  <p className="text-[rgba(0,7,20,0.62)] font-normal text-sm ">
-                    Gaming Terminal 023
-                  </p>
-                </div>
-                <span className="bg-[rgba(139,141,152,1)] text-white px-[7px] py-[2px] rounded text-xs font-medium">
-                  Offline
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center space-x-7">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Location
-                      </span>
-                      <p className="font-medium text-[14px]">
-                        Floor 1, Section A
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5 text-gray-600"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"
-                      />
-                    </svg>
-
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Group
-                      </span>
-                      <p className="font-medium text-[14px]">Group A</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-[65px]">
-                  <div className="flex items-center space-x-2">
-                    <svg
-                      className="w-5 h-5 text-[rgba(229,72,77,1)]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
-                      />
-                    </svg>
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Network
-                      </span>
-                      <p className="font-medium text-[14px]">Disconnected</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <img src={thermometerred} alt="" />
-                    <div>
-                      <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                        Temperature
-                      </span>
-                      <p className="font-medium text-[14px] text-[rgba(229,72,77,1)]">
-                        68°F
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 w-full bg-[rgba(255,255,255,0.5)] border border-[rgba(239,239,239,1)] rounded-[5px] p-3 space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                    Revenue (24h)
-                  </p>
-                  <p className="text-[14px] font-medium">$8,500</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">Uptime</p>
-                  <p className="text-[14px] font-medium">98.5%</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-[14px] text-[rgba(0,7,20,0.62)]">
-                    Last Seen
-                  </p>
-                  <p className="text-[14px] font-medium">2 mins ago</p>
-                </div>
-              </div>
-              <div className="w-full py-[10px] px-[15px] bg-[rgba(234,28,37,0.03)] mt-5 rounded-[5px]">
-                <p className="font-medium text-[rgba(234,28,37,1)]">
-                  Geofence violation - Auto-disabled
-                </p>
-              </div>
-              <div className="h-[1px] w-full bg-[rgba(202,213,226,1)] my-5"></div>
-
-              <div className="mt-4 flex space-x-2">
-                <button
-                  className="w-[268px] h-[40px] rounded-[8px] gap-3 px-[4px)] font-medium text-[rgba(96,100,108,1)] bg-[rgba(0,0,51,0.06)]"
-                  onClick={() =>
-                    openDetail("M-023", {
-                      name: "Mobile Details - M-023",
-                      status: "offline",
-                      temperature: 72,
-                      network: "disconnected",
-                    })
-                  }
-                >
-                  Details
-                </button>
-                <button
-                  className="w-[84px] h-[40px] rounded-[8px] gap-3 font-medium text-[rgba(0,8,48,0.27)] px-[4px] opacity-100 bg-[rgba(0,0,51,0.06)]"
-                  onClick={() =>
-                    handleMachineControl(
-                      selectedDevice || {
-                        device_id: "M-023",
-                        imei: "",
-                        serial_number: "",
-                        is_online: false,
-                      },
-                      "enable"
-                    )
-                  }
-                >
-                  Enable
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
@@ -1038,11 +576,10 @@ function DeviceManagement() {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Status:</span>
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        mapSelectedDevice?.is_online
-                          ? "status-online"
-                          : "status-offline"
-                      }`}
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${mapSelectedDevice?.is_online
+                        ? "status-online"
+                        : "status-offline"
+                        }`}
                     >
                       {mapSelectedDevice?.is_online ? "Online" : "Offline"}
                     </span>
@@ -1072,8 +609,8 @@ function DeviceManagement() {
                     <span className="font-medium">
                       {mapSelectedDevice?.last_event_time
                         ? new Date(
-                            mapSelectedDevice.last_event_time || ""
-                          ).toLocaleString()
+                          mapSelectedDevice.last_event_time || ""
+                        ).toLocaleString()
                         : "N/A"}
                     </span>
                   </div>
@@ -1094,9 +631,8 @@ function DeviceManagement() {
           }}
           onConfirm={handleMFAConfirm}
           title={`${mfaAction === "enable" ? "Enable" : "Disable"} Machine`}
-          description={`This will ${
-            mfaAction === "enable" ? "enable" : "disable"
-          } machine ${selectedDevice?.device_id || ""}`}
+          description={`This will ${mfaAction === "enable" ? "enable" : "disable"
+            } machine ${selectedDevice?.device_id || ""}`}
           action={mfaAction === "enable" ? "Enable Machine" : "Disable Machine"}
         />
       </div>

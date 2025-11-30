@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { getDevices } from "../../services/api";
+import { Device } from "../../types";
 
 interface ReportExportProps {
   isOpen: boolean;
@@ -24,6 +26,20 @@ function ReportExport({ isOpen, onClose, onExport }: ReportExportProps) {
     includeDetails: true,
   });
   const [isExporting, setIsExporting] = useState(false);
+  const [devices, setDevices] = useState<Device[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+    }
+  }, [isOpen]);
+
+  const uniqueGroups = useMemo(() => {
+    const groups = devices
+      .map((d) => d.group_name)
+      .filter((g): g is string => !!g && g.trim() !== "");
+    return Array.from(new Set(groups)).sort();
+  }, [devices]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -149,10 +165,11 @@ function ReportExport({ isOpen, onClose, onExport }: ReportExportProps) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="all">All Groups</option>
-              <option value="group-a">Group A</option>
-              <option value="group-b">Group B</option>
-              <option value="group-c">Group C</option>
-              <option value="group-d">Group D</option>
+              {uniqueGroups.map((group) => (
+                <option key={group} value={group}>
+                  {group}
+                </option>
+              ))}
             </select>
           </div>
 
