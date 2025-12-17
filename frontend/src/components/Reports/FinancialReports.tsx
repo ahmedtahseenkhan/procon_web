@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getEvents } from "../../services/api";
+import { getEvents, getFinancialStats, getFinancialChart, getMachinePerformance } from "../../services/api";
 import { DeviceEvent } from "../../types";
 import ReportExport from "./ReportExport";
 import RunReportModal from "./RunReportModal";
@@ -27,22 +27,31 @@ const yearOptions = [
 ];
 interface FinancialStats {
   totalRevenue: number;
+  totalVouchers: number;
+  netWin: number;
   totalTransactions: number;
-  averageTransaction: number;
-  todayRevenue: number;
-  weeklyRevenue: number;
-  monthlyRevenue: number;
+  avgTransaction: number;
+  payoutRate: number;
 }
 
 function FinancialReports() {
   const [events, setEvents] = useState<DeviceEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState("all");
   const [showExportModal, setShowExportModal] = useState(false);
   const [showRunReportModal, setShowRunReportModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "performance">(
-    "overview"
-  );
+  const [activeTab, setActiveTab] = useState<"overview" | "performance">("overview");
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [stats, setStats] = useState<FinancialStats>({
+    totalRevenue: 0,
+    totalVouchers: 0,
+    netWin: 0,
+    totalTransactions: 0,
+    avgTransaction: 0,
+    payoutRate: 0,
+  });
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [machines, setMachines] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -62,60 +71,39 @@ function FinancialReports() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const filters = {
+          year: selectedYear,
+          month: selectedMonth || undefined,
+        };
+
+        const [statsData, chartResponse, machinesData] = await Promise.all([
+          getFinancialStats(filters),
+          getFinancialChart(filters),
+          getMachinePerformance(filters),
+        ]);
+
+        setStats(statsData);
+        setChartData(chartResponse.chartData || []);
+        setMachines(machinesData.machines || []);
+      } catch (error) {
+        console.error("Error fetching financial data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [selectedYear, selectedMonth]);
+
   const financialEvents = useMemo(() => {
     return events.filter(
       (e) => e.is_financial_event || e.event_id === "Money Added"
     );
   }, [events]);
-
-  const filteredEvents = useMemo(() => {
-    if (timeRange === "all") return financialEvents;
-
-    const now = new Date();
-    const hoursAgo = parseInt(timeRange);
-
-    return financialEvents.filter((event) => {
-      const eventDate = new Date(event.event_timestamp);
-      return eventDate >= new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-    });
-  }, [financialEvents, timeRange]);
-
-  const stats: FinancialStats = useMemo(() => {
-    const totalRevenue = filteredEvents.reduce(
-      (acc, e) => acc + Number(e.parsed_amount || 0),
-      0
-    );
-    const totalTransactions = filteredEvents.length;
-    const averageTransaction =
-      totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayRevenue = financialEvents
-      .filter((e) => new Date(e.event_timestamp) >= today)
-      .reduce((acc, e) => acc + Number(e.parsed_amount || 0), 0);
-
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const weeklyRevenue = financialEvents
-      .filter((e) => new Date(e.event_timestamp) >= weekAgo)
-      .reduce((acc, e) => acc + Number(e.parsed_amount || 0), 0);
-
-    const monthAgo = new Date();
-    monthAgo.setDate(monthAgo.getDate() - 30);
-    const monthlyRevenue = financialEvents
-      .filter((e) => new Date(e.event_timestamp) >= monthAgo)
-      .reduce((acc, e) => acc + Number(e.parsed_amount || 0), 0);
-
-    return {
-      totalRevenue,
-      totalTransactions,
-      averageTransaction,
-      todayRevenue,
-      weeklyRevenue,
-      monthlyRevenue,
-    };
-  }, [filteredEvents, financialEvents]);
 
   const handleExport = async (format: "pdf" | "excel", options: any) => {
     try {
@@ -133,31 +121,6 @@ function FinancialReports() {
       alert("Failed to export report. Please try again.");
     }
   };
-
-  const recentTransactions = useMemo(() => {
-    return filteredEvents
-      .sort(
-        (a, b) =>
-          new Date(b.event_timestamp).getTime() -
-          new Date(a.event_timestamp).getTime()
-      )
-      .slice(0, 10);
-  }, [filteredEvents]);
-
-  const deviceRevenue = useMemo(() => {
-    const deviceMap = new Map<string, number>();
-    filteredEvents.forEach((event) => {
-      const current = deviceMap.get(event.device_id) || 0;
-      deviceMap.set(
-        event.device_id,
-        current + (Number(event.parsed_amount) || 0)
-      );
-    });
-    return Array.from(deviceMap.entries())
-      .map(([deviceId, revenue]) => ({ deviceId, revenue }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
-  }, [filteredEvents]);
 
   if (loading) {
     return (
@@ -229,7 +192,7 @@ function FinancialReports() {
               </div>
             </div>
             <div className="text-[22px] font-semibold text-[rgba(10,10,10,1)] leading-[100%] tracking-[-0.02em] font-['DM_Sans'] align-middle my-3">
-              $125,430
+              ${stats.totalRevenue.toLocaleString()}
             </div>
             <div className="flex items-center">
               <span className=" flex items-center justify-center text-[12px] font-medium text-[rgba(10,191,82,1)] bg-[rgba(239,253,244,1)] rounded-[8px] px-[10px] py-[4px]">
@@ -252,7 +215,7 @@ function FinancialReports() {
               </div>
             </div>
             <div className="text-[22px] font-semibold text-[rgba(10,10,10,1)] leading-[100%] tracking-[-0.02em] font-['DM_Sans'] align-middle my-3">
-              73.2%
+              {stats.payoutRate.toFixed(1)}%
             </div>
             <div className="flex items-center">
               <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full">
@@ -275,7 +238,7 @@ function FinancialReports() {
               </div>
             </div>
             <div className="text-[22px] font-semibold text-[rgba(10,10,10,1)] leading-[100%] tracking-[-0.02em] font-['DM_Sans'] align-middle my-3">
-              $45,320
+              ${stats.netWin.toLocaleString()}
             </div>
 
             <div className="flex items-center">
@@ -299,7 +262,7 @@ function FinancialReports() {
               </div>
             </div>
             <div className="text-[22px] font-semibold text-[rgba(10,10,10,1)] leading-[100%] tracking-[-0.02em] font-['DM_Sans'] align-middle my-3">
-              12,847
+              {stats.totalTransactions.toLocaleString()}
             </div>
 
             <div className="flex items-center">
@@ -319,8 +282,8 @@ function FinancialReports() {
           <button
             onClick={() => setActiveTab("overview")}
             className={`px-4 py-2 text-base font-normal rounded-[12px] transition-colors ${activeTab === "overview"
-                ? "bg-white text-[rgba(17,17,17,1)]"
-                : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
+              ? "bg-white text-[rgba(17,17,17,1)]"
+              : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
               }`}
           >
             Overview
@@ -328,8 +291,8 @@ function FinancialReports() {
           <button
             onClick={() => setActiveTab("performance")}
             className={`px-4 py-2 text-base font-normal rounded-[12px] transition-colors ${activeTab === "performance"
-                ? "bg-white text-[rgba(17,17,17,1)]"
-                : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
+              ? "bg-white text-[rgba(17,17,17,1)]"
+              : "bg-transparent text-[rgba(113,113,130,1)] hover:bg-white hover:text-[rgba(17,17,17,1)]"
               }`}
           >
             Machine Performance
@@ -337,8 +300,8 @@ function FinancialReports() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "overview" && <OverviewChart />}
-        {activeTab === "performance" && <MachinePerformanceTable />}
+        {activeTab === "overview" && <OverviewChart chartData={chartData} />}
+        {activeTab === "performance" && <MachinePerformanceTable machines={machines} />}
         {/* <div className="bg-[#FEFEFE] border border-[#E6E6E6] rounded-lg p-6 shadow-[0px_11px_16px_0px_rgba(220,220,221,0.4)]">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4"></div>

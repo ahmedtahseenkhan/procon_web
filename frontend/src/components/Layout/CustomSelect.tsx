@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, Fragment, useEffect } from "react";
 import {
   Listbox,
   ListboxButton,
@@ -33,6 +33,12 @@ export default function CustomSelect({
     value ?? (multiSelect ? [] : options[0])
   );
 
+  useEffect(() => {
+    if (value !== undefined) {
+      setSelected(value);
+    }
+  }, [value]);
+
   const handleChange = (val: string | string[]) => {
     setSelected(val);
     onChange?.(val);
@@ -58,15 +64,14 @@ export default function CustomSelect({
         : `${selected.length} selected`
       : (selected as string);
 
-  const defaultButtonClass = `w-full px-3 py-2 border border-[rgba(235,235,235,1)] rounded text-left bg-white flex justify-between items-center outline-none transition-all ${
-    isAllSelected ? "h-auto min-h-[40px]" : "h-[40px]"
-  }`;
+  const defaultButtonClass = `w-full px-3 py-2 border border-[rgba(235,235,235,1)] rounded text-left bg-white flex justify-between items-center outline-none transition-all ${isAllSelected ? "h-auto min-h-[40px]" : "h-[40px]"
+    }`;
 
   return (
     <div className={`relative ${containerClassName}`}>
       <Listbox
         value={selected}
-        onChange={multiSelect ? () => {} : handleChange}
+        onChange={multiSelect ? () => { } : handleChange}
       >
         {({ open }) => (
           <div className="relative">
@@ -112,9 +117,8 @@ export default function CustomSelect({
               leaveTo="opacity-0"
             >
               <ListboxOptions
-                className={`absolute mt-1 w-full rounded-[4px] border border-[rgba(0,0,51,0.06)] bg-white shadow-[0_12px_32px_-16px_rgba(0,0,51,0.05)] py-2 px-2 text-sm z-50 max-h-[240px] overflow-y-auto ${
-                  optionsClassName || ""
-                }`}
+                className={`absolute mt-1 w-full rounded-[4px] border border-[rgba(0,0,51,0.06)] bg-white shadow-[0_12px_32px_-16px_rgba(0,0,51,0.05)] py-2 px-2 text-sm z-50 max-h-[240px] overflow-y-auto ${optionsClassName || ""
+                  }`}
               >
                 {placeholderOption && (
                   <div className="px-3 py-2 text-gray-500 text-xs font-semibold uppercase tracking-wide">
@@ -133,11 +137,10 @@ export default function CustomSelect({
                         handleChange(firstOption);
                       }
                     }}
-                    className={`w-full text-left px-3 py-2 mb-1 rounded-md cursor-pointer ${
-                      !multiSelect && selected === firstOption
-                        ? "bg-blue-600 text-white"
-                        : "hover:bg-blue-600 text-[rgba(28,32,36,1)] hover:text-white"
-                    }`}
+                    className={`w-full text-left px-3 py-2 mb-1 rounded-md cursor-pointer ${!multiSelect && selected === firstOption
+                      ? "bg-blue-600 text-white"
+                      : "hover:bg-blue-600 text-[rgba(28,32,36,1)] hover:text-white"
+                      }`}
                   >
                     {firstOption}
                   </button>
@@ -151,13 +154,12 @@ export default function CustomSelect({
                         ? handleMultiSelect(option)
                         : handleChange(option)
                     }
-                    className={`w-full text-left px-3 py-2 mb-1 rounded-md transition-colors  flex items-center gap-2 ${
-                      multiSelect &&
+                    className={`w-full text-left px-3 py-2 mb-1 rounded-md transition-colors  flex items-center gap-2 ${multiSelect &&
                       Array.isArray(selected) &&
                       selected.includes(option)
-                        ? "bg-blue-600 text-white"
-                        : "hover:bg-blue-600 text-[rgba(28,32,36,1)] hover:text-white"
-                    }`}
+                      ? "bg-blue-600 text-white"
+                      : "hover:bg-blue-600 text-[rgba(28,32,36,1)] hover:text-white"
+                      }`}
                   >
                     {multiSelect && (
                       <input
@@ -165,7 +167,7 @@ export default function CustomSelect({
                         checked={
                           Array.isArray(selected) && selected.includes(option)
                         }
-                        onChange={() => {}}
+                        onChange={() => { }}
                         className="mr-2 w-4 h-4  border-gray-300 rounded focus:ring-0"
                       />
                     )}

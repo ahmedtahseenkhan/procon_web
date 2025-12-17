@@ -19,6 +19,7 @@ import MachineDetailsDrawer from "./MachineDetailsDrawer";
 
 interface DashboardStats {
   totalRevenue: number;
+  totalNetWin: number;
   activeMachines: number;
   activeAlerts: number;
   livePlayers: number;
@@ -65,6 +66,7 @@ function Dashboard() {
   const [events, setEvents] = useState<DeviceEvent[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalRevenue: 0,
+    totalNetWin: 0,
     activeMachines: 0,
     activeAlerts: 0,
     livePlayers: 0,
@@ -80,8 +82,10 @@ function Dashboard() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('roadmap');
   const [zoomLevel, setZoomLevel] = useState(6);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const [isLegendExpanded, setIsLegendExpanded] = useState(true);
 
   const dateOptions = [
     "This Month",
@@ -384,7 +388,9 @@ function Dashboard() {
           getDevices(),
           getEvents(),
           getDashboardStats({
-            dateRange: dateValue,
+            dateRange: selectedDate
+              ? selectedDate.toISOString().split('T')[0]
+              : dateValue,
             groupFilter: groupValue,
             severityFilter: severityValue
           })
@@ -407,10 +413,10 @@ function Dashboard() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+    const interval = setInterval(fetchData, 3600000); // Refresh every 1 hour
 
     return () => clearInterval(interval);
-  }, [dateValue, groupValue, severityValue]);
+  }, [dateValue, groupValue, severityValue, selectedDate]);
 
   const uniqueGroups = useMemo(() => {
     const groups = devices
@@ -469,6 +475,7 @@ function Dashboard() {
                 };
                 const sel = Array.isArray(val) ? val[0] : val;
                 setDateValue(map[sel] || 'this_month');
+                setSelectedDate(null); // Clear specific date
               }}
             />
           </div>
@@ -499,9 +506,6 @@ function Dashboard() {
           </div>
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1">
-              <span className="font-semibold text-[12px] text-[rgba(10,10,10,1)] whitespace-nowrap">
-                Time:
-              </span>
               <CustomSelect
                 options={dateOptions}
                 value={dateValue === 'this_month' ? 'This Month' : dateValue.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -517,22 +521,7 @@ function Dashboard() {
                   };
                   const sel = Array.isArray(val) ? val[0] : val;
                   setDateValue(map[sel] || 'this_month');
-                }}
-              />
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="font-semibold text-[12px] text-[rgba(10,10,10,1)] whitespace-nowrap">
-                Group:
-              </span>
-              <CustomSelect
-                options={uniqueGroups}
-                value={groupValue === 'all' ? 'All' : groupValue}
-                multiSelect={false}
-                containerClassName="w-[80px]"
-                buttonClassName="w-full px-1 py-0 border-none bg-transparent flex justify-between items-center outline-none text-[12px] font-semibold text-[rgba(10,10,10,1)]"
-                onChange={(val) => {
-                  const sel = Array.isArray(val) ? val[0] : val;
-                  setGroupValue(sel);
+                  setSelectedDate(null);
                 }}
               />
             </div>
@@ -564,41 +553,6 @@ function Dashboard() {
           </div>
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1">
-              <span className="font-semibold text-[12px] text-[rgba(10,10,10,1)] whitespace-nowrap">
-                Group:
-              </span>
-              <CustomSelect
-                options={uniqueGroups}
-                value={groupValue === 'all' ? 'All' : groupValue}
-                multiSelect={false}
-                containerClassName="w-[80px]"
-                buttonClassName="w-full px-1 py-0 border-none bg-transparent flex justify-between items-center outline-none text-[12px] font-semibold text-[rgba(10,10,10,1)]"
-                onChange={(val) => {
-                  const sel = Array.isArray(val) ? val[0] : val;
-                  setGroupValue(sel);
-                }}
-              />
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="font-semibold text-[12px] text-[rgba(10,10,10,1)] whitespace-nowrap">
-                Severity:
-              </span>
-              <CustomSelect
-                options={severityOptions}
-                value={severityValue === 'all' ? 'All Severities' : severityValue.charAt(0).toUpperCase() + severityValue.slice(1)}
-                multiSelect={false}
-                containerClassName="w-[100px]"
-                buttonClassName="w-full px-1 py-0 border-none bg-transparent flex justify-between items-center outline-none text-[12px] font-semibold text-[rgba(10,10,10,1)]"
-                onChange={(val) => {
-                  const sel = Array.isArray(val) ? val[0] : val;
-                  setSeverityValue(sel === 'All Severities' ? 'all' : sel.toLowerCase());
-                }}
-              />
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="font-semibold text-[12px] text-[rgba(10,10,10,1)] whitespace-nowrap">
-                Time:
-              </span>
               <CustomSelect
                 options={dateOptions}
                 value={dateValue === 'this_month' ? 'This Month' : dateValue.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -614,6 +568,7 @@ function Dashboard() {
                   };
                   const sel = Array.isArray(val) ? val[0] : val;
                   setDateValue(map[sel] || 'this_month');
+                  setSelectedDate(null);
                 }}
               />
             </div>
@@ -642,6 +597,24 @@ function Dashboard() {
               +23 joins/min
             </div>
           </div>
+          <div className="flex items-center space-x-1">
+            <CustomSelect
+              options={dateOptions}
+              value={dateValue === 'this_month' ? 'This Month' : dateValue.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              multiSelect={false}
+              onChange={(val) => {
+                const map: Record<string, string> = {
+                  'This Month': 'this_month',
+                  'Last Month': 'last_month',
+                  'Last 7 Days': 'last_7_days',
+                  'Last 30 Days': 'last_30_days'
+                };
+                const sel = Array.isArray(val) ? val[0] : val;
+                setDateValue(map[sel] || 'this_month');
+                setSelectedDate(null); // Clear specific date
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -651,7 +624,15 @@ function Dashboard() {
         </h3>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <TailwindDatepicker />
+            <TailwindDatepicker
+              selected={selectedDate}
+              onChange={(date) => {
+                setSelectedDate(date);
+                if (date) {
+                  setDateValue(''); // Clear preset if specific date selected
+                }
+              }}
+            />
             <div className="relative w-[231px]">
               <img
                 src={search}
@@ -677,12 +658,12 @@ function Dashboard() {
 
           <CustomSelect
             options={uniqueGroups}
-            value={groupValue === 'all' ? 'All Clusters' : groupValue}
-            firstOption="All Clusters"
+            value={groupValue === 'all' ? 'All Groups' : groupValue}
+            firstOption="All Groups"
             multiSelect={false}
             onChange={(val) => {
               const sel = Array.isArray(val) ? val[0] : val;
-              setGroupValue(sel === 'All Clusters' ? 'all' : sel);
+              setGroupValue(sel === 'All Groups' ? 'all' : sel);
             }}
           />
         </div>
@@ -803,34 +784,69 @@ function Dashboard() {
           )}
 
           {/* Legend (bottom-left) */}
-          <div className="absolute bottom-3 z-10 left-3  bg-[rgba(254,254,254,1)] border border-[rgba(230,230,230,1)] rounded-[8px] shadow-[0px_11px_16px_0px_rgba(220,220,221,0.4)] p-[24px]">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {groupStats.map((g) => (
-                <button
-                  key={g.name}
-                  type="button"
-                  onClick={() => setSelectedGroup(g.name)}
-                  className="flex items-center text-left"
-                >
-                  <span
-                    className={`w-3 h-3 rounded-full ${g.color === "red"
-                      ? "bg-red-500"
-                      : g.color === "orange"
-                        ? "bg-yellow-400"
-                        : "bg-green-500"
-                      }`}
-                  ></span>
-                  <div className="ml-4">
-                    <span className="text-[16px] leading-[100%] tracking-[-0.02em] text-[rgba(28,32,36,1)]">
-                      {g.name}
-                    </span>
-                    <p className="text-[14px] leading-[100%] tracking-[-0.02em] text-[rgba(28,32,36,1)] opacity-50">
-                      {g.alerts} Alerts
-                    </p>
-                  </div>
-                </button>
-              ))}
+          {/* Legend (bottom-left) */}
+          <div className={`absolute bottom-3 z-10 left-3 bg-[rgba(254,254,254,1)] border border-[rgba(230,230,230,1)] rounded-[8px] shadow-[0px_11px_16px_0px_rgba(220,220,221,0.4)] transition-all duration-300 ${isLegendExpanded ? 'p-[16px] min-w-[300px]' : 'p-[12px] w-auto'}`}>
+            <div
+              className="flex items-center justify-between cursor-pointer"
+              onClick={() => setIsLegendExpanded(!isLegendExpanded)}
+            >
+              <h4 className="text-[14px] font-semibold text-[rgba(28,32,36,1)] flex items-center gap-2">
+                <span>Groups</span>
+                <span className="text-xs font-normal text-gray-500">({groupStats.length})</span>
+              </h4>
+              <button
+                type="button"
+                className="ml-4 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                {isLegendExpanded ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+                  </svg>
+                )}
+              </button>
             </div>
+
+            {isLegendExpanded && (
+              <div className="mt-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="grid grid-cols-1 gap-y-2">
+                  {groupStats.map((g) => (
+                    <button
+                      key={g.name}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGroupClick(g.name);
+                        setIsLegendExpanded(false);
+                      }}
+                      className={`flex items-center text-left p-2 rounded-md transition-colors ${selectedGroup === g.name ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                    >
+                      <span
+                        className={`w-3 h-3 rounded-full flex-shrink-0 ${g.color === "red"
+                          ? "bg-red-500"
+                          : g.color === "orange"
+                            ? "bg-yellow-400"
+                            : "bg-green-500"
+                          }`}
+                      ></span>
+                      <div className="ml-3 flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-[14px] font-medium leading-none text-[rgba(28,32,36,1)] truncate pr-2">
+                            {g.name}
+                          </span>
+                          <span className="text-[12px] text-gray-500 flex-shrink-0">
+                            {g.alerts} Alerts
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Google Map - UPDATED */}

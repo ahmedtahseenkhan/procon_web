@@ -58,7 +58,7 @@ function AlertFeed() {
       }
     };
     fetchAll();
-    const interval = setInterval(fetchAll, 30000);
+    const interval = setInterval(fetchAll, 3600000); // Refresh every 1 hour
     return () => clearInterval(interval);
   }, []);
 

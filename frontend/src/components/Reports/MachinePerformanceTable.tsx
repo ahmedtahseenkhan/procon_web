@@ -82,7 +82,11 @@ const machineData: MachineData[] = [
 const statusOptions = ["All Status", "Active", "Inactive", "Maintenance"];
 const sortOptions = ["Name", "Uptime", "Efficiency", "Revenue"];
 
-export default function MachinePerformanceTable() {
+interface MachinePerformanceTableProps {
+  machines?: any[];
+}
+
+export default function MachinePerformanceTable({ machines: propMachines = [] }: MachinePerformanceTableProps) {
   const [selectedGroup, setSelectedGroup] = useState("All Machines");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
   const [sortBy, setSortBy] = useState("Name");
@@ -98,6 +102,14 @@ export default function MachinePerformanceTable() {
       .filter((g): g is string => !!g && g.trim() !== "");
     return ["All Machines", ...Array.from(new Set(groups)).sort()];
   }, [devices]);
+
+  // Use provided machines or fall back to mock data
+  const displayMachines = propMachines.length > 0 ? propMachines : machineData;
+
+  // Filter by selected group
+  const filteredMachines = selectedGroup === "All Machines"
+    ? displayMachines
+    : displayMachines.filter((m: any) => m.groupName === selectedGroup);
 
   return (
     <div className="animate-fade-in animate-slide-in-from-bottom-4">
@@ -139,7 +151,7 @@ export default function MachinePerformanceTable() {
               </tr>
             </thead>
             <tbody>
-              {machineData.map((machine) => (
+              {filteredMachines.map((machine: any) => (
                 <tr
                   key={machine.id}
                   className="border-b border-[#E6E6E6] hover:bg-gray-50 transition-colors"
@@ -148,8 +160,8 @@ export default function MachinePerformanceTable() {
                     machine.name,
                     machine.uptime,
                     machine.efficiency,
-                    machine.revenuePerDay,
-                    machine.totalRevenue,
+                    machine.revenuePerDay ? `$${machine.revenuePerDay}` : machine.revenuePerDay,
+                    machine.totalRevenue ? `$${machine.totalRevenue}` : machine.totalRevenue,
                   ].map((value, idx) => (
                     <td
                       key={idx}

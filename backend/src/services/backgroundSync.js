@@ -128,16 +128,24 @@ async function insertEvent(client, parsed, companyId, accountId) {
 
 async function upsertFinancialSummary(client, parsed, companyId) {
   if (!parsed.is_financial_event || !parsed.parsed_amount) return;
+
   const summaryDate = new Date(parsed.event_timestamp);
   const yyyyMmDd = summaryDate.toISOString().slice(0, 10);
+
+  // Determine if it's cash in or voucher (cash out)
+  const isVoucher = parsed.is_voucher_event;
+  const cashIn = isVoucher ? 0 : parsed.parsed_amount;
+  const vouchers = isVoucher ? parsed.parsed_amount : 0;
+
   await client.query(
-    `INSERT INTO financial_summary (device_id, company_id, summary_date, total_cash_in, transaction_count, last_transaction_time)
-     VALUES($1,$2,$3,$4,1,$5)
+    `INSERT INTO financial_summary (device_id, company_id, summary_date, total_cash_in, total_vouchers, transaction_count, last_transaction_time)
+     VALUES($1, $2, $3, $4, $5, 1, $6)
      ON CONFLICT (device_id, summary_date)
      DO UPDATE SET total_cash_in = financial_summary.total_cash_in + EXCLUDED.total_cash_in,
+                   total_vouchers = financial_summary.total_vouchers + EXCLUDED.total_vouchers,
                    transaction_count = financial_summary.transaction_count + 1,
                    last_transaction_time = GREATEST(financial_summary.last_transaction_time, EXCLUDED.last_transaction_time)`,
-    [parsed.device_id, companyId, yyyyMmDd, parsed.parsed_amount, parsed.event_timestamp]
+    [parsed.device_id, companyId, yyyyMmDd, cashIn, vouchers, parsed.event_timestamp]
   );
 }
 

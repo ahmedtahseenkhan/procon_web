@@ -8,7 +8,9 @@ async function getDashboardStats(req, res) {
         // 1. Total Revenue (Financial Summary)
         // Default to current month if no dateRange provided, or handle 'month' filter
         let revenueQuery = `
-      SELECT SUM(total_cash_in) as total_revenue 
+      SELECT 
+        SUM(total_cash_in) as total_revenue,
+        SUM(total_vouchers) as total_vouchers
       FROM financial_summary fs
       LEFT JOIN devices d ON fs.device_id = d.device_id
       WHERE fs.company_id = $1
@@ -35,6 +37,18 @@ async function getDashboardStats(req, res) {
             } else if (dateRange === 'last_30_days') {
                 startDate = new Date(now);
                 startDate.setDate(now.getDate() - 30);
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateRange)) {
+                // Specific date
+                startDate = new Date(dateRange);
+                // If invalid date, ignore
+                if (isNaN(startDate.getTime())) {
+                    startDate = null;
+                } else {
+                    // For revenue (summary_date), exact match
+                    revenueQuery += ` AND fs.summary_date = $${pCount++}`;
+                    revenueParams.push(dateRange);
+                    startDate = null; // Quary handled here
+                }
             }
 
             if (startDate) {
@@ -55,6 +69,8 @@ async function getDashboardStats(req, res) {
 
         const revenueResult = await pool.query(revenueQuery, revenueParams);
         const totalRevenue = Number(revenueResult.rows[0]?.total_revenue || 0);
+        const totalVouchers = Number(revenueResult.rows[0]?.total_vouchers || 0);
+        const totalNetWin = totalRevenue - totalVouchers;
 
 
         // 2. Active Machines (Online count)
@@ -103,6 +119,19 @@ async function getDashboardStats(req, res) {
             } else if (dateRange === 'last_30_days') {
                 startDate = new Date(now);
                 startDate.setDate(now.getDate() - 30);
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateRange)) {
+                // Specific date for alerts (timestamp)
+                // Match the whole day from 00:00 to 23:59:59
+                const d = new Date(dateRange);
+                if (!isNaN(d.getTime())) {
+                    const nextDay = new Date(d);
+                    nextDay.setDate(d.getDate() + 1);
+
+                    alertsQuery += ` AND de.event_timestamp >= $${aCount++} AND de.event_timestamp < $${aCount++}`;
+                    alertsParams.push(d.toISOString());
+                    alertsParams.push(nextDay.toISOString());
+                    startDate = null; // Handled
+                }
             }
 
             if (startDate) {
@@ -133,6 +162,8 @@ async function getDashboardStats(req, res) {
 
         res.json({
             totalRevenue,
+            totalVouchers,
+            totalNetWin,
             activeMachines,
             activeAlerts,
             livePlayers,

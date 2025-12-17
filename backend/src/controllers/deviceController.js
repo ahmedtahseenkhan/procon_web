@@ -4,7 +4,7 @@ async function listDevices(req, res) {
   try {
     const companyId = req.user.company_id;
     const { rows } = await pool.query(
-      `SELECT device_id, imei, serial_number, nickname, status, last_known_lat, last_known_lng, last_event_time, is_online, group_name, full_address
+      `SELECT device_id, imei, serial_number, nickname, status, last_known_lat, last_known_lng, last_event_time, is_online, group_name, full_address, event_rssi, event_voltage
        FROM devices WHERE company_id = $1 ORDER BY updated_at DESC LIMIT 1000`,
       [String(companyId)]
     );
@@ -27,6 +27,8 @@ async function listDevices(req, res) {
       is_online: r.is_online,
       group_name: r.group_name,
       full_address: r.full_address,
+      rssi: r.event_rssi,
+      voltage: r.event_voltage,
     }));
     res.json({ devices });
   } catch (e) {
@@ -50,7 +52,7 @@ async function deviceCommand(req, res) {
         'INSERT INTO device_command_log(device_id, action, username, status, response) VALUES($1, $2, $3, $4, $5)',
         [req.params.deviceId, action, req.user.username, 'error', { message: e?.message || 'error' }]
       );
-    } catch {}
+    } catch { }
     res.status(500).json({ error: 'server_error' });
   }
 }

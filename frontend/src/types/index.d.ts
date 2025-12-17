@@ -10,6 +10,8 @@ export type Device = {
   is_online?: boolean
   group_name?: string
   full_address?: string
+  rssi?: number
+  voltage?: number
 }
 
 export type DeviceEvent = {

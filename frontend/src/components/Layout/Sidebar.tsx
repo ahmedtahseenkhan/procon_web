@@ -35,7 +35,7 @@ function Sidebar({ userInfo, onLogout, isOpen = false }: SidebarProps) {
       path: "/reports",
       icon: <img src={reportsIcon} alt="" className="w-5 h-5" aria-hidden />,
       label: "Financial Reports",
-      roles: ["Admin", "Manager", "Admin Tech"],
+      roles: ["Admin"],
     },
     {
       path: "/devices",
@@ -60,11 +60,10 @@ function Sidebar({ userInfo, onLogout, isOpen = false }: SidebarProps) {
     <nav
       className={`z-30 bg-white border-r border-gray-200 h-full flex flex-col transition-all duration-200
       fixed md:static inset-y-0 left-0 transform md:translate-x-0 py-8 px-5
-      ${
-        isOpen
+      ${isOpen
           ? "translate-x-0 md:w-[270px]"
           : "-translate-x-full md:translate-x-0 md:w-[104px]"
-      }
+        }
     `}
     >
       {/* Logo */}
@@ -88,11 +87,10 @@ function Sidebar({ userInfo, onLogout, isOpen = false }: SidebarProps) {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center rounded-[12px] border border-transparent px-[20px] py-[16px] gap-[5px] transition-colors
-            ${
-              isActive
-                ? "bg-[rgba(249,252,250,1)] border-[0.5px] border-[rgba(231,244,238,1)] text-[rgba(17,17,17,1)]"
-                : "text-[rgba(113,113,130,1)] hover:text-[rgba(17,17,17,1)]"
-            }
+            ${isActive
+                    ? "bg-[rgba(249,252,250,1)] border-[0.5px] border-[rgba(231,244,238,1)] text-[rgba(17,17,17,1)]"
+                    : "text-[rgba(113,113,130,1)] hover:text-[rgba(17,17,17,1)]"
+                  }
             ${isOpen ? "justify-start space-x-3" : "justify-center"}
           `}
                 title={item.label}

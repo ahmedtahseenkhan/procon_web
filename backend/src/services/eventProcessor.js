@@ -22,18 +22,19 @@ class EventProcessor {
       is_door_event: isDoor,
       is_cash_box_event: isCashBox,
       is_financial_event: isFinancial,
+      is_voucher_event: this.isVoucherEvent(rawEvent),
       event_timestamp: eventTs,
       report_timestamp: new Date(rawEvent.reporttime),
       severity: this.determineSeverity(rawEvent)
     };
   }
   extractAmount(entry) {
-    if (typeof entry === 'string' && entry.includes('$')) {
-      const cleaned = entry.replace(/\$/g, '').replace(/,/g, '');
-      const n = parseFloat(cleaned);
-      return Number.isFinite(n) ? n : null;
-    }
-    return null;
+    if (!entry) return null;
+    const s = String(entry);
+    // Remove $, commas, whitespace
+    const cleaned = s.replace(/[$,\s]/g, '');
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : null;
   }
   normalizeStatus(entry) {
     if (!entry) return null;
@@ -52,11 +53,16 @@ class EventProcessor {
     return e.includes('cash box removed') || e.includes('cash box inserted');
   }
   isFinancialEvent(ev) {
-    return ev.eventid === 'Money Added' || (typeof ev.entry === 'string' && ev.entry.includes('$'));
+    // "Money Added" OR "Voucher Issued" OR entry has a digit
+    // We already relaxed extractAmount so we can be broader here
+    return ev.eventid === 'Money Added' || ev.eventid === 'Voucher Issued' || (this.extractAmount(ev.entry) !== null && !this.isDoorEvent(ev) && !this.isCashBoxEvent(ev));
+  }
+  isVoucherEvent(ev) {
+    return ev.eventid === 'Voucher Issued';
   }
   determineSeverity(ev) {
     // derive from catalog-friendly values; fallback rules
-    if (ev.eventid === 'Money Added') return 'normal';
+    if (ev.eventid === 'Money Added' || ev.eventid === 'Voucher Issued') return 'normal';
     const entry = (ev.entry || '').toLowerCase();
     if (entry.includes('door open') || entry.includes('cash box removed')) return 'critical';
     return 'info';

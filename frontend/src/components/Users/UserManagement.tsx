@@ -34,8 +34,7 @@ interface UserFormData {
 function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
+  /* Removed selectedGroups and selectedDevices state */
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -54,19 +53,7 @@ function UserManagement() {
     getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
   }, []);
 
-  const uniqueGroups = useMemo(() => {
-    const groups = devices
-      .map((d) => d.group_name)
-      .filter((g): g is string => !!g && g.trim() !== "");
-    return Array.from(new Set(groups)).sort();
-  }, [devices]);
-
-  const uniqueDevices = useMemo(() => {
-    const devs = devices
-      .map((d) => d.nickname || d.device_id || d.serial_number || d.imei)
-      .filter((d): d is string => !!d && d.trim() !== "");
-    return Array.from(new Set(devs)).sort();
-  }, [devices]);
+  /* Removed unused uniqueGroups and uniqueDevices memos */
 
   const fetchUsers = async () => {
     try {
@@ -438,28 +425,7 @@ function UserManagement() {
                   <option value="Tech">Tech</option>
                 </select> */}
               </div>
-              <div>
-                <label className="block text-[16px] font-medium text-[rgba(0,0,0,1)] mb-1">
-                  Groups
-                </label>
-                <TagPicker
-                  options={uniqueGroups}
-                  value={selectedGroups}
-                  containerClassName="w-full"
-                  onChange={(val) => setSelectedGroups(val)}
-                />
-              </div>
-              <div>
-                <label className="block text-[16px] font-medium text-[rgba(0,0,0,1)] mb-1">
-                  Select Devices
-                </label>
-                <TagPicker
-                  options={uniqueDevices}
-                  value={selectedDevices}
-                  containerClassName="w-full"
-                  onChange={(val) => setSelectedDevices(val)}
-                />
-              </div>
+              {/* Removed Groups and Select Devices fields */}
               {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Company ID

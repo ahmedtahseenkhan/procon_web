@@ -23,9 +23,10 @@ export default function TailwindDatepicker({ selected, onChange }: DatePickerPro
     <div
       ref={ref}
       onClick={onClick}
-      className="w-10 h-10 p-2 rounded-md border border-[rgba(224,224,224,1)] bg-white flex items-center justify-center cursor-pointer"
+      className="w-auto h-10 px-3 py-2 rounded-md border border-[rgba(224,224,224,1)] bg-white flex items-center justify-center cursor-pointer min-w-[40px]"
     >
       <img src={calendar} alt="" />
+      {value && <span className="ml-2 text-sm text-[rgba(28,32,36,1)]">{value}</span>}
     </div>
   ));
 

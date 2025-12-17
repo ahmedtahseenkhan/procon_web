@@ -98,3 +98,40 @@ export async function getDashboardStats(filters?: any) {
   if (!response.ok) throw new Error('Failed to fetch dashboard stats');
   return response.json();
 }
+
+export async function getFinancialStats(filters?: { year?: string; month?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.year) params.append('year', filters.year);
+  if (filters?.month) params.append('month', filters.month);
+
+  const response = await fetch(`${base}/api/reports/financial/stats?${params.toString()}`, {
+    headers: authHeader(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch financial stats');
+  return response.json();
+}
+
+export async function getFinancialChart(filters?: { year?: string; month?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.year) params.append('year', filters.year);
+  if (filters?.month) params.append('month', filters.month);
+
+  const response = await fetch(`${base}/api/reports/financial/chart?${params.toString()}`, {
+    headers: authHeader(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch financial chart');
+  return response.json();
+}
+
+export async function getMachinePerformance(filters?: { year?: string; month?: string; groupFilter?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.year) params.append('year', filters.year);
+  if (filters?.month) params.append('month', filters.month);
+  if (filters?.groupFilter) params.append('groupFilter', filters.groupFilter);
+
+  const response = await fetch(`${base}/api/reports/financial/performance?${params.toString()}`, {
+    headers: authHeader(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch machine performance');
+  return response.json();
+}

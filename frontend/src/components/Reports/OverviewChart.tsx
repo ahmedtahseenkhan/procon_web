@@ -68,8 +68,18 @@ const revenueData = [
   { name: "Jun", profit: 70000, revenue: 90000 },
 ];
 const dataFilter = ["This Week", "This Month", "This Year"];
-export default function OverviewChart() {
+
+interface OverviewChartProps {
+  chartData?: any[];
+}
+
+export default function OverviewChart({ chartData = [] }: OverviewChartProps) {
   const [selectedGroup, setSelectedGroup] = useState("This Week");
+
+  // Use provided chartData or fall back to mock data
+  const displayData = chartData.length > 0 ? chartData : data;
+  const displayRevenueData = chartData.length > 0 ? chartData : revenueData;
+
   return (
     <div className="space-y-6 animate-fade-in animate-slide-in-from-bottom-4">
       {/* Bar Chart */}
@@ -131,7 +141,7 @@ export default function OverviewChart() {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={data}>
+            <ComposedChart data={displayData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E6E6E6" />
               <XAxis dataKey="name" stroke="#999" />
               <YAxis stroke="#999" />
@@ -164,7 +174,7 @@ export default function OverviewChart() {
           </div>
 
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={revenueData}>
+            <LineChart data={displayRevenueData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E6E6E6" />
               <XAxis dataKey="name" stroke="#999" />
               <YAxis stroke="#999" />
