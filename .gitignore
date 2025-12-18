@@ -113,3 +113,10 @@ doc/
 
 device.txt
 report.txt
+
+
+../backend/package-lock.json
+../backend/src/app.js
+src/assets/icons/warning.svg
+src/assets/icons/Warning.svg
+vite.config.ts
