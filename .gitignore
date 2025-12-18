@@ -115,8 +115,8 @@ device.txt
 report.txt
 
 
-../backend/package-lock.json
-../backend/src/app.js
-src/assets/icons/warning.svg
-src/assets/icons/Warning.svg
-vite.config.ts
+backend/package-lock.json
+backend/src/app.js
+frontend/src/assets/icons/warning.svg
+frontend/src/assets/icons/Warning.svg
+frontend/vite.config.ts
