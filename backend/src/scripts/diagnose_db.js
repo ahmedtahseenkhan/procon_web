@@ -26,7 +26,17 @@ async function diagnose() {
             FROM information_schema.tables 
             WHERE table_schema = 'public'
         `);
-        console.log('Tables found:', tablesRes.rows.map(r => r.table_name).join(', ') || 'NONE');
+        const tables = tablesRes.rows.map(r => r.table_name);
+        console.log('Tables found:', tables.join(', ') || 'NONE');
+
+        const expectedTables = ['severity_levels', 'device_groups'];
+        expectedTables.forEach(t => {
+            if (tables.includes(t)) {
+                console.log(`✅ Table ${t} exists.`);
+            } else {
+                console.log(`❌ Table ${t} is MISSING.`);
+            }
+        });
 
         // 2. Check schema_migrations
         try {
