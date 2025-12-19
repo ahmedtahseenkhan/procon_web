@@ -38,6 +38,20 @@ async function diagnose() {
             }
         });
 
+        // Check for specific column in financial_summary
+        if (tables.includes('financial_summary')) {
+            const colRes = await client.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'financial_summary' AND column_name = 'total_vouchers'
+            `);
+            if (colRes.rows.length > 0) {
+                console.log('✅ Column total_vouchers exists in financial_summary.');
+            } else {
+                console.log('❌ Column total_vouchers is MISSING in financial_summary.');
+            }
+        }
+
         // 2. Check environment variables (mask API keys)
         console.log('\n--- Environment Variables ---');
         const envVars = [
