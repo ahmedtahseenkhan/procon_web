@@ -1,9 +1,21 @@
 const { Pool } = require('pg');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+// Correct path to .env in backend folder
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 async function diagnose() {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    // Use DATABASE_URL or fallback to separate env vars like the main app does
+    const connectionConfig = process.env.DATABASE_URL
+        ? { connectionString: process.env.DATABASE_URL }
+        : {
+            host: process.env.DB_HOST || 'localhost',
+            port: process.env.DB_PORT || 5432,
+            database: process.env.DB_NAME || 'procon_gaming',
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || '',
+        };
+
+    const pool = new Pool(connectionConfig);
     const client = await pool.connect();
     try {
         console.log('--- Database Diagnostics ---');
