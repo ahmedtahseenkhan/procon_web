@@ -10,6 +10,7 @@ const { listEvents, ackEvent, sseEvents } = require('./controllers/eventControll
 const { createUser, listUsers, updateUser, deleteUser, getUserById } = require('./controllers/userController');
 const { exportFinancials, getFinancialStats, getFinancialChart, getMachinePerformance } = require('./controllers/reportController');
 const { getDashboardStats } = require('./controllers/dashboardController');
+const metadataRoutes = require('./routes/metadataRoutes');
 const backgroundSync = require('./services/backgroundSync');
 const app = express();
 app.use(cors());
@@ -17,6 +18,7 @@ app.use(helmet());
 app.use(express.json({ limit: '1mb' }));
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
 app.use(limiter);
+app.use('/api/metadata', metadataRoutes);
 app.post('/api/auth/login', loginHandler);
 app.post('/api/auth/verify-otp', verifyOtpHandler);
 app.get('/api/auth/me', authMiddleware, meHandler);

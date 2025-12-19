@@ -135,3 +135,11 @@ export async function getMachinePerformance(filters?: { year?: string; month?: s
   if (!response.ok) throw new Error('Failed to fetch machine performance');
   return response.json();
 }
+
+export async function getSeverities() {
+  const response = await fetch(`${base}/api/metadata/severities`, {
+    headers: authHeader(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch severities');
+  return response.json();
+}

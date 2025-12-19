@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { getEvents, getDevices, acknowledgeEvent } from "../../services/api";
+import { getEvents, getDevices, acknowledgeEvent, getSeverities } from "../../services/api";
 import { DeviceEvent } from "../../types";
 import AlertDetailModal from "./AlertDetailModal";
 import searchIcon from "../../assets/icons/search.svg";
@@ -19,7 +19,7 @@ interface AlertFilters {
   deviceId: string;
   dateRange: string;
 }
-const severityOptions = ["All Severities", "Critical", "Maintenance", "Warning", "Normal"];
+// Removed static severityOptions
 
 function AlertFeed() {
   const [events, setEvents] = useState<DeviceEvent[]>([]);
@@ -34,6 +34,7 @@ function AlertFeed() {
     deviceId: "all",
     dateRange: "all",
   });
+  const [severityLevels, setSeverityLevels] = useState<{ code: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState<DeviceEvent | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -43,8 +44,12 @@ function AlertFeed() {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const [evRes, devRes] = await Promise.all([getEvents(), getDevices()]);
+        const [evRes, devRes, sevRes] = await Promise.all([getEvents(), getDevices(), getSeverities()]);
         setEvents(evRes.events || []);
+
+        // Handle severity levels
+        setSeverityLevels(sevRes);
+
         const m: Record<string, { group_name?: string; nickname?: string }> = {};
         for (const d of (devRes.devices || [])) {
           const key = d.device_id || d.serial_number || d.imei;
@@ -240,20 +245,17 @@ function AlertFeed() {
             </div>
           </div>
           <CustomSelect
-            options={severityOptions}
-            value={filters.severity === 'all' ? 'All Severities' : (filters.severity === 'maintenance' ? 'Maintenance' : (filters.severity.charAt(0).toUpperCase() + filters.severity.slice(1)))}
+            options={["All Severities", ...severityLevels.map(s => s.label)]}
+            value={filters.severity === 'all' ? 'All Severities' : severityLevels.find(s => s.code === filters.severity)?.label || filters.severity}
             multiSelect={false}
             onChange={(val) => {
               const sel = Array.isArray(val) ? val[0] : val;
-              const map: Record<string, string> = {
-                'All Severities': 'all',
-                'All': 'all',
-                'Critical': 'critical',
-                'Maintenance': 'maintenance',
-                'Warning': 'warning',
-                'Normal': 'normal',
-              };
-              setFilters((f) => ({ ...f, severity: map[sel] ?? 'all' }));
+              if (sel === 'All Severities') {
+                setFilters((f) => ({ ...f, severity: 'all' }));
+              } else {
+                const found = severityLevels.find(s => s.label === sel);
+                setFilters((f) => ({ ...f, severity: found ? found.code : 'all' }));
+              }
               setPage(1);
             }}
           />

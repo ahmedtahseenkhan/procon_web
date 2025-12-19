@@ -4,18 +4,20 @@ import DatePicker from "../Alerts/DatePicker";
 import search from "../../assets/icons/search.svg";
 import CustomSelect from "../Layout/CustomSelect";
 import download from "../../assets/icons/download.svg";
-const severityOptions = ["All Severities", "Critical", "High", "Medium", "Low"];
+// Removed static severityOptions
 
 import { useEffect, useState, useMemo } from "react";
-import { getDevices } from "../../services/api";
+import { getDevices, getSeverities } from "../../services/api";
 import { Device } from "../../types";
 
 function GeofenceActivity() {
   const navigate = useNavigate();
   const [devices, setDevices] = useState<Device[]>([]);
+  const [severityLevels, setSeverityLevels] = useState<{ code: string; label: string }[]>([]);
 
   useEffect(() => {
     getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+    getSeverities().then(setSeverityLevels).catch(console.error);
   }, []);
 
   const uniqueGroups = useMemo(() => {
@@ -85,7 +87,7 @@ function GeofenceActivity() {
             </div>
           </div>
           <CustomSelect
-            options={severityOptions}
+            options={["All Severities", ...severityLevels.map(s => s.label)]}
             value="All Severities"
             multiSelect={false}
             onChange={(val) => console.log("Selected:", val)}

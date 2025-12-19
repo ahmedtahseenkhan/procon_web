@@ -116,7 +116,13 @@ report.txt
 
 
 backend/package-lock.json
-backend/src/app.js
+
 frontend/src/assets/icons/warning.svg
 frontend/src/assets/icons/Warning.svg
 frontend/vite.config.ts
+
+ARCHITECTURE.md
+
+devices.txt
+report.txt
+docs/

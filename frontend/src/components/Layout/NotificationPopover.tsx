@@ -307,29 +307,29 @@ function NotificationPopover({
                 notification.type
               )}`}
             >
-              <div className="flex flex-col items-end gap-3 h-auto flex-1">
-                <div className="flex flex-row items-center gap-3">
+              <div className="flex flex-col items-start gap-3 h-auto flex-1">
+                <div className="flex flex-row items-start gap-3 w-full">
                   {/* Icon */}
                   {getNotificationIcon(notification.type)}
 
                   {/* Content */}
                   <div className="flex flex-col justify-center items-start gap-2 flex-1">
                     {/* Title and Description */}
-                    <div className="flex flex-col items-start gap-2 ">
+                    <div className="flex flex-col items-start gap-2 w-full">
                       <div className=" font-semibold text-sm leading-[18px] tracking-[-0.02em] text-[#111111] flex items-center">
                         {notification.title}
                       </div>
-                      <div className="  font-normal text-sm leading-5 text-[#595D62] flex items-center">
+                      <div className="items-center font-normal text-sm leading-5 text-[#595D62] flex">
                         {notification.description}
                       </div>
                     </div>
 
                     {/* Timestamp and Tags */}
-                    <div className="flex flex-row justify-between items-start gap-1 w-full">
-                      <span className="font-normal text-sm text-[#717182] text-center flex items-center">
+                    <div className="flex flex-row justify-start items-center gap-3 w-full">
+                      <span className="font-normal text-sm text-[#717182] flex items-center">
                         {notification.timestamp}
                       </span>
-                      <div className="flex flex-row items-center gap-2.5 mb-2 mx-auto">
+                      <div className="flex flex-row items-center gap-2.5">
                         {notification.machineId && (
                           <div className="box-border flex flex-row justify-center items-center px-1.5 py-0.5 gap-1.5 w-auto h-5 bg-[rgba(255,255,255,0.9)] border border-[rgba(0,6,46,0.196078)] rounded">
                             <span className=" font-normal text-xs leading-4 tracking-[0.04px] text-[rgba(0,7,20,0.623529)] flex items-center">
@@ -348,7 +348,7 @@ function NotificationPopover({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-row items-start gap-2 ml-3">
+                    <div className="flex flex-row items-start gap-2 mt-1">
                       <button
                         onClick={handleViewAllAlerts}
                         className="flex flex-row justify-center items-center px-2 py-0 gap-1 w-auto h-6 bg-[#8B8D98] rounded hover:opacity-90 transition-opacity"

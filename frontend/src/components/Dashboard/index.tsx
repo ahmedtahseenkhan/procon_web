@@ -5,7 +5,7 @@ import {
   InfoWindow,
   useJsApiLoader,
 } from "@react-google-maps/api";
-import { getDevices, getEvents, getDashboardStats } from "../../services/api";
+import { getDevices, getEvents, getDashboardStats, getSeverities } from "../../services/api";
 import { Device, DeviceEvent } from "../../types";
 import FiltersSection from "../Layout/FiltersSection";
 import currency from "../../assets/icons/currency.svg";
@@ -50,7 +50,8 @@ type GroupStats = {
   lon: number | null;
 };
 
-const severityOptions = ["All Severities", "Critical", "High", "Medium", "Low"];
+// Removed static severityOptions
+
 
 // Default center coordinates (New York as fallback)
 const DEFAULT_CENTER = { lat: 35.2271, lng: -80.8431 };
@@ -62,6 +63,7 @@ function Dashboard() {
     deviceId: "all",
     dateRange: "all",
   });
+  const [severityLevels, setSeverityLevels] = useState<{ code: string; label: string }[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [events, setEvents] = useState<DeviceEvent[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
@@ -418,6 +420,14 @@ function Dashboard() {
     return () => clearInterval(interval);
   }, [dateValue, groupValue, severityValue, selectedDate]);
 
+  // Fetch metadata once
+  useEffect(() => {
+    getSeverities().then((levels: any[]) => {
+      // Add 'All' option manually or handle in render
+      setSeverityLevels(levels);
+    }).catch(console.error);
+  }, []);
+
   const uniqueGroups = useMemo(() => {
     const groups = devices
       .map((d) => d.group_name)
@@ -510,8 +520,6 @@ function Dashboard() {
                 options={dateOptions}
                 value={dateValue === 'this_month' ? 'This Month' : dateValue.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 multiSelect={false}
-                containerClassName="w-[100px]"
-                buttonClassName="w-full px-1 py-0 border-none bg-transparent flex justify-between items-center outline-none text-[12px] font-semibold text-[rgba(10,10,10,1)]"
                 onChange={(val) => {
                   const map: Record<string, string> = {
                     'This Month': 'this_month',
@@ -557,8 +565,6 @@ function Dashboard() {
                 options={dateOptions}
                 value={dateValue === 'this_month' ? 'This Month' : dateValue.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 multiSelect={false}
-                containerClassName="w-[100px]"
-                buttonClassName="w-full px-1 py-0 border-none bg-transparent flex justify-between items-center outline-none text-[12px] font-semibold text-[rgba(10,10,10,1)]"
                 onChange={(val) => {
                   const map: Record<string, string> = {
                     'This Month': 'this_month',
@@ -647,12 +653,17 @@ function Dashboard() {
             </div>
           </div>
           <CustomSelect
-            options={severityOptions}
-            value={severityValue === 'all' ? 'All Severities' : severityValue.charAt(0).toUpperCase() + severityValue.slice(1)}
+            options={["All Severities", ...severityLevels.map(s => s.label)]}
+            value={severityValue === 'all' ? 'All Severities' : severityLevels.find(s => s.code === severityValue)?.label || severityValue}
             multiSelect={false}
             onChange={(val) => {
               const sel = Array.isArray(val) ? val[0] : val;
-              setSeverityValue(sel === 'All Severities' ? 'all' : sel.toLowerCase());
+              if (sel === 'All Severities') {
+                setSeverityValue('all');
+              } else {
+                const found = severityLevels.find(s => s.label === sel);
+                setSeverityValue(found ? found.code : 'all');
+              }
             }}
           />
 

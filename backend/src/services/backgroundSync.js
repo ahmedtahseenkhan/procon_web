@@ -163,13 +163,14 @@ async function manageActiveAlerts(client, eventUuid, parsed) {
 
 async function _syncAccount(accountId) {
   if (!accountId) return;
-  // Basic approach: last 24h window. In production, store last_row_id/time in api_sync_logs and use it.
-  const raw = await proconApi.pollEvents({ accountId });
-  const deviceList = await proconApi.pollDevices({ accountId, rowLimit: 1000 });
   const client = await pool.connect();
   const startTime = Date.now();
   let rowsFetched = 0;
   try {
+    // Basic approach: last 24h window. In production, store last_row_id/time in api_sync_logs and use it.
+    const raw = await proconApi.pollEvents({ accountId });
+    const deviceList = await proconApi.pollDevices({ accountId, rowLimit: 1000 });
+
     await client.query('BEGIN');
     // upsert devices from devices API first
     for (const d of deviceList) {
