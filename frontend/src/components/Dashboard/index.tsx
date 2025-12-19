@@ -11,7 +11,7 @@ import FiltersSection from "../Layout/FiltersSection";
 import currency from "../../assets/icons/currency.svg";
 import joystick from "../../assets/icons/joystick.svg";
 import shape from "../../assets/icons/shape.svg";
-import Warning from "../../assets/icons/Warning.svg";
+import Warning from "../../assets/icons/warning.svg";
 import CustomSelect from "../Layout/CustomSelect";
 import TailwindDatepicker from "../Alerts/DatePicker";
 import search from "../../assets/icons/search.svg";
