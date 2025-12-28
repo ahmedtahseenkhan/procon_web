@@ -80,9 +80,9 @@ async function exportFinancials(req, res) {
       doc.font('Helvetica-Bold');
       doc.text('Date', 50, y);
       doc.text('Device', 150, y);
-      doc.text('Group', 250, y);
-      doc.text('Trans. Count', 350, y);
-      doc.text('Total Cash In', 450, y);
+      doc.text('Group', 280, y);
+      doc.text('Trans. Count', 360, y, { width: 50, align: 'right' });
+      doc.text('Total Cash In', 450, y, { width: 100, align: 'right' });
 
       y += 20;
       doc.font('Helvetica');
@@ -98,10 +98,10 @@ async function exportFinancials(req, res) {
         }
 
         doc.text(new Date(row.summary_date).toLocaleDateString(), 50, y);
-        doc.text(row.nickname || row.device_id, 150, y);
-        doc.text(row.group_name || '-', 250, y);
-        doc.text(row.transaction_count.toString(), 350, y);
-        doc.text(`$${Number(row.total_cash_in).toFixed(2)}`, 450, y);
+        doc.text(row.nickname || row.device_id, 150, y, { width: 120, ellipsis: true });
+        doc.text(row.group_name || '-', 280, y, { width: 70, ellipsis: true });
+        doc.text(row.transaction_count.toString(), 360, y, { width: 50, align: 'right' });
+        doc.text(`$${Number(row.total_cash_in).toFixed(2)}`, 450, y, { width: 100, align: 'right' });
 
         totalRevenue += Number(row.total_cash_in);
         y += 20;

@@ -141,7 +141,7 @@ export default function OverviewChart({ chartData = [] }: OverviewChartProps) {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={displayData}>
+            <ComposedChart data={displayData} margin={{ left: 20, right: 30, top: 20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E6E6E6" />
               <XAxis dataKey="name" stroke="#999" />
               <YAxis stroke="#999" />
@@ -174,7 +174,7 @@ export default function OverviewChart({ chartData = [] }: OverviewChartProps) {
           </div>
 
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={displayRevenueData}>
+            <LineChart data={displayRevenueData} margin={{ left: 20, right: 30, top: 20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E6E6E6" />
               <XAxis dataKey="name" stroke="#999" />
               <YAxis stroke="#999" />

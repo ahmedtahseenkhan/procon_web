@@ -3,6 +3,7 @@ import {
   Listbox,
   ListboxButton,
   ListboxOptions,
+  ListboxOption,
   Transition,
 } from "@headlessui/react";
 
@@ -75,7 +76,7 @@ export default function CustomSelect({
       >
         {({ open }) => (
           <div className="relative">
-            <ListboxButton className={buttonClassName || defaultButtonClass}>
+            <ListboxButton className={buttonClassName || defaultButtonClass} type="button">
               <span className="truncate">{displayText}</span>
               {open ? (
                 <svg
@@ -127,52 +128,67 @@ export default function CustomSelect({
                 )}
 
                 {firstOption && (
-                  <button
-                    onClick={() => {
-                      if (multiSelect) {
-                        const all = [...options];
-                        const isAllSelected = Array.isArray(selected) && selected.length === options.length;
-                        handleChange(isAllSelected ? [] : all);
-                      } else {
-                        handleChange(firstOption);
-                      }
-                    }}
-                    className={`w-full text-left px-3 py-2 mb-1 rounded-md cursor-pointer ${!multiSelect && selected === firstOption
-                      ? "bg-blue-600 text-white"
-                      : "hover:bg-blue-600 text-[rgba(28,32,36,1)] hover:text-white"
-                      }`}
+                  <ListboxOption
+                    key="first-option"
+                    value={firstOption}
+                    as={Fragment}
                   >
-                    {firstOption}
-                  </button>
+                    {({ active, selected: isSelected }: { active: boolean; selected: boolean }) => (
+                      <li
+                        onClick={() => {
+                          if (multiSelect) {
+                            const all = [...options];
+                            const isAllSelected =
+                              Array.isArray(selected) &&
+                              selected.length === options.length;
+                            handleChange(isAllSelected ? [] : all);
+                          } else {
+                            handleChange(firstOption);
+                          }
+                        }}
+                        className={`w-full text-left px-3 py-2 mb-1 rounded-md cursor-pointer list-none ${(!multiSelect && selected === firstOption) || active
+                          ? "bg-blue-600 text-white"
+                          : "text-[rgba(28,32,36,1)] hover:bg-blue-600 hover:text-white"
+                          }`}
+                      >
+                        {firstOption}
+                      </li>
+                    )}
+                  </ListboxOption>
                 )}
 
                 {options.map((option) => (
-                  <button
-                    key={option}
-                    onClick={() =>
-                      multiSelect
-                        ? handleMultiSelect(option)
-                        : handleChange(option)
-                    }
-                    className={`w-full text-left px-3 py-2 mb-1 rounded-md transition-colors  flex items-center gap-2 ${multiSelect &&
-                      Array.isArray(selected) &&
-                      selected.includes(option)
-                      ? "bg-blue-600 text-white"
-                      : "hover:bg-blue-600 text-[rgba(28,32,36,1)] hover:text-white"
-                      }`}
-                  >
-                    {multiSelect && (
-                      <input
-                        type="checkbox"
-                        checked={
-                          Array.isArray(selected) && selected.includes(option)
+                  <ListboxOption key={option} value={option} as={Fragment}>
+                    {({ active, selected: isSelected }: { active: boolean; selected: boolean }) => (
+                      <li
+                        onClick={() =>
+                          multiSelect
+                            ? handleMultiSelect(option)
+                            : handleChange(option)
                         }
-                        onChange={() => { }}
-                        className="mr-2 w-4 h-4  border-gray-300 rounded focus:ring-0"
-                      />
+                        className={`w-full text-left px-3 py-2 mb-1 rounded-md transition-colors flex items-center gap-2 cursor-pointer list-none ${(multiSelect &&
+                          Array.isArray(selected) &&
+                          selected.includes(option)) ||
+                          active
+                          ? "bg-blue-600 text-white"
+                          : "text-[rgba(28,32,36,1)] hover:bg-blue-600 hover:text-white"
+                          }`}
+                      >
+                        {multiSelect && (
+                          <input
+                            type="checkbox"
+                            checked={
+                              Array.isArray(selected) &&
+                              selected.includes(option)
+                            }
+                            onChange={() => { }}
+                            className="mr-2 w-4 h-4 border-gray-300 rounded focus:ring-0"
+                          />
+                        )}
+                        {option}
+                      </li>
                     )}
-                    {option}
-                  </button>
+                  </ListboxOption>
                 ))}
               </ListboxOptions>
             </Transition>
