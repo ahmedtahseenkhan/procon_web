@@ -22,10 +22,12 @@ function AppContent() {
 
   const handleLogin = async (username: string, password: string) => {
     try {
-      const u = await loginUser(username, password)
-      setUsername(u)
+      const loggedInUsername = await loginUser(username, password)
+      setUsername(loggedInUsername)
       setLoginStep('otp')
-    } catch (err) {}
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   const handleOtpVerification = async (otp: string) => {

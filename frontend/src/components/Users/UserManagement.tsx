@@ -221,13 +221,13 @@ function UserManagement() {
                     {/* ACTIONS */}
                     <td className="min-w-[160px] px-4 py-4">
                       <div className="flex items-center space-x-2">
-                        <button onClick={() => handleEdit(user)}>Edit</button>
+                        <button onClick={() => handleEdit(user)} className="text-emerald-600 hover:text-emerald-800 font-semibold">Edit</button>
                         <button
                           onClick={() => {
                             setSelectedUserId(user.user_id);
                             setOpenDelete(true);
                           }}
-                        >
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 transition">
                           Delete
                         </button>
                       </div>

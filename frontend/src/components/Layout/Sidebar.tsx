@@ -49,6 +49,7 @@ function Sidebar({ userInfo, onLogout, isOpen = false }: SidebarProps) {
       label: "User Management",
       roles: ["Admin"],
     },
+
   ];
 
   // Filter navigation items based on user role

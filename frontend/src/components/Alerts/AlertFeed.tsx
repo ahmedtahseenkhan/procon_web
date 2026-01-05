@@ -28,6 +28,7 @@ function AlertFeed() {
   const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const pageSize = 20;
+  const [timeSort, setTimeSort] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState<AlertFilters>({
     severity: "all",
     eventType: "all",
@@ -132,11 +133,20 @@ function AlertFeed() {
     });
   }, [events, filters, search, selectedClusters, devicesMap, selectedDate]);
 
-  const totalPages = Math.max(Math.ceil(filteredEvents.length / pageSize), 1);
+  const sortedEvents = useMemo(() => {
+    const dir = timeSort === 'asc' ? 1 : -1;
+    return [...filteredEvents].sort((a: any, b: any) => {
+      const ta = new Date(a.event_timestamp).getTime();
+      const tb = new Date(b.event_timestamp).getTime();
+      return (ta - tb) * dir;
+    });
+  }, [filteredEvents, timeSort]);
+
+  const totalPages = Math.max(Math.ceil(sortedEvents.length / pageSize), 1);
   const pageEvents = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return filteredEvents.slice(start, start + pageSize);
-  }, [filteredEvents, page, pageSize]);
+    return sortedEvents.slice(start, start + pageSize);
+  }, [sortedEvents, page, pageSize]);
 
   const rowBgClass = (sev: string, cat?: string) => {
     const s = String(sev || '').toLowerCase();
@@ -294,7 +304,17 @@ function AlertFeed() {
                   Cluster
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 w-[248px] min-w-[160px] h-[48px] min-h-[44px] text-[14px] leading-[20px] tracking-[0.02em] font-[Inter]">
-                  Time
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-left"
+                    onClick={() => {
+                      setTimeSort((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                      setPage(1);
+                    }}
+                  >
+                    <span>Time</span>
+                    <span className="text-gray-400">{timeSort === 'asc' ? '▲' : '▼'}</span>
+                  </button>
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 w-[248px] min-w-[160px] h-[48px] min-h-[44px] text-[14px] leading-[20px] tracking-[0.02em] font-[Inter]">
                   Action

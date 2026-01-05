@@ -143,3 +143,41 @@ export async function getSeverities() {
   if (!response.ok) throw new Error('Failed to fetch severities');
   return response.json();
 }
+
+
+
+// RBAC
+export async function getRoles() {
+  const response = await fetch(`${base}/api/roles`, { headers: authHeader() });
+  if (!response.ok) throw new Error('Failed to fetch roles');
+  return response.json();
+}
+
+export async function createRole(roleData: any) {
+  const response = await fetch(`${base}/api/roles`, {
+    method: 'POST',
+    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(roleData)
+  });
+  if (!response.ok) throw new Error('Failed to create role');
+  return response.json();
+}
+
+export async function updateRole(roleId: string, roleData: any) {
+  const response = await fetch(`${base}/api/roles/${roleId}`, {
+    method: 'PUT',
+    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(roleData)
+  });
+  if (!response.ok) throw new Error('Failed to update role');
+  return response.json();
+}
+// Group Mgmt (if separate from metadata)
+export async function getGroups() {
+  const response = await fetch(`${base}/api/metadata/groups`, {
+    headers: authHeader(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch groups');
+  return response.json();
+}
+

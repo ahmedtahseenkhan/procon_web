@@ -4,11 +4,11 @@ const bcrypt = require('bcrypt');
 async function setupDatabase() {
   try {
     console.log('🚀 Setting up database...');
-    
+
     // Test connection first
     await pool.query('SELECT NOW()');
     console.log('✅ Database connection successful');
-    
+
     // Create database if it doesn't exist (this might fail if database already exists, which is fine)
     try {
       await pool.query('CREATE DATABASE procon_gaming');
@@ -20,10 +20,10 @@ async function setupDatabase() {
         throw err;
       }
     }
-    
+
     // Create tables from schema
     console.log('📋 Creating tables...');
-    
+
     // Companies table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS companies (
@@ -32,7 +32,7 @@ async function setupDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     // User roles table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_roles (
@@ -41,7 +41,7 @@ async function setupDatabase() {
         description TEXT
       )
     `);
-    
+
     // Users table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -59,19 +59,19 @@ async function setupDatabase() {
         FOREIGN KEY (role_name) REFERENCES user_roles(role_name)
       )
     `);
-    
+
     console.log('✅ Tables created successfully');
-    
+
     // Insert default data
     console.log('🌱 Seeding default data...');
-    
+
     // Insert default company
     await pool.query(`
       INSERT INTO companies (company_id, name) 
       VALUES ('default-company', 'Default Company') 
       ON CONFLICT (company_id) DO NOTHING
     `);
-    
+
     // Insert default roles
     await pool.query(`
       INSERT INTO user_roles (role_name, permissions, description) 
@@ -82,7 +82,7 @@ async function setupDatabase() {
         ('Tech', '{"manage_users":false,"manage_devices":true,"view_reports":false,"send_commands":false}'::jsonb, 'Technician')
       ON CONFLICT (role_name) DO NOTHING
     `);
-    
+
     // Create test user
     const passwordHash = await bcrypt.hash('password123', 10);
     await pool.query(`
@@ -102,14 +102,14 @@ async function setupDatabase() {
       'Admin',
       true
     ]);
-    
+
     console.log('✅ Test user created:');
     console.log('   Username: reginaphanalge@mail.com');
     console.log('   Password: password123');
     console.log('   OTP: 123456');
-    
+
     console.log('🎉 Database setup completed successfully!');
-    
+
   } catch (error) {
     console.error('❌ Database setup failed:', error.message);
     console.log('\n💡 Troubleshooting tips:');

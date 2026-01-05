@@ -301,4 +301,4 @@ function start() {
   timer = setInterval(syncOnce, 15 * 60 * 1000);
 }
 
-module.exports = { start, syncOnce, syncWindow };
+module.exports = { start, syncOnce, syncWindow, syncCompany: _syncAccount };

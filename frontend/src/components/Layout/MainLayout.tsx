@@ -10,6 +10,7 @@ import GeofenceActivity from "../Reports/GeofenceActivity";
 import DeviceManagement from "../Devices/DeviceManagement";
 import UserManagement from "../Users/UserManagement";
 import LandingPagePreferences from "../Settings/LandingPagePreferences";
+import RoleManagement from "../Settings/RoleManagement";
 
 interface MainLayoutProps {
   userInfo: any;
@@ -25,9 +26,8 @@ export default function MainLayout({ userInfo, onLogout }: MainLayoutProps) {
         <Sidebar userInfo={userInfo} onLogout={onLogout} isOpen={sidebarOpen} />
 
         <div
-          className={`fixed inset-0 bg-black/30 z-20 md:hidden ${
-            sidebarOpen ? "" : "hidden"
-          }`}
+          className={`fixed inset-0 bg-black/30 z-20 md:hidden ${sidebarOpen ? "" : "hidden"
+            }`}
           onClick={() => setSidebarOpen(false)}
         />
 
