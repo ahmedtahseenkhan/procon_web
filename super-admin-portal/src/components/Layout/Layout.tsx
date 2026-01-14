@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { Bell } from 'lucide-react';
 import Sidebar from "./Sidebar";
 import { getCompanies } from "../../services/api";
@@ -8,6 +8,7 @@ export default function Layout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [companyCount, setCompanyCount] = useState(0);
     const adminName = localStorage.getItem('superAdminName') || 'Admin';
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchCount = async () => {
@@ -17,7 +18,14 @@ export default function Layout() {
                     const res = await getCompanies(token);
                     setCompanyCount(res.companies?.length || 0);
                 }
-            } catch (e) { console.error(e); }
+            } catch (e: any) {
+                console.error(e);
+                // Redirect to login on failure (likely 401 or network error that indicates invalid session)
+                // The API throws "Failed to fetch companies" on !response.ok
+                if (e.message.includes('fetch') || e.message.includes('auth')) {
+                    navigate('/login');
+                }
+            }
         };
         fetchCount();
         // Poll every 30s or just once is fine. Let's do once for now.
