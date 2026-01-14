@@ -8,8 +8,8 @@ import {
 } from "@headlessui/react";
 import CustomSelect from "../Layout/CustomSelect";
 import TagPicker from "../Layout/TagPicker";
-import { getDevices } from "../../services/api";
-import { Device } from "../../types";
+import { getDevices, getGroups } from "../../services/api";
+import { Device, DeviceGroup } from "../../types";
 
 interface RunReportModalProps {
   isOpen: boolean;
@@ -47,19 +47,18 @@ export default function RunReportModal({
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [selectedGeofence, setSelectedGeofence] = useState("Geofence 1");
   const [devices, setDevices] = useState<Device[]>([]);
+  const [groups, setGroups] = useState<DeviceGroup[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+      getGroups().then((res) => setGroups(res || [])).catch(console.error);
     }
   }, [isOpen]);
 
-  const uniqueGroups = useMemo(() => {
-    const groups = devices
-      .map((d) => d.group_name)
-      .filter((g): g is string => !!g && g.trim() !== "");
-    return Array.from(new Set(groups)).sort();
-  }, [devices]);
+  const groupOptions = useMemo(() => {
+    return groups.map((g) => ({ value: g.group_id, label: g.name }));
+  }, [groups]);
 
   const uniqueAssets = useMemo(() => {
     const assets = devices
@@ -158,7 +157,7 @@ export default function RunReportModal({
                           Groups
                         </label>
                         <TagPicker
-                          options={uniqueGroups}
+                          options={groupOptions}
                           value={selectedGroups}
                           containerClassName="w-full"
                           onChange={(val) => setSelectedGroups(val)}
@@ -215,7 +214,7 @@ export default function RunReportModal({
                           Groups
                         </label>
                         <TagPicker
-                          options={uniqueGroups}
+                          options={groupOptions}
                           value={selectedGroups}
                           containerClassName="w-full"
                           onChange={(val) => setSelectedGroups(val)}

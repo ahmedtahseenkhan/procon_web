@@ -1,10 +1,11 @@
 const { pool } = require('../config/db');
 const proconApi = require('../services/proconApiService');
+
 async function listDevices(req, res) {
   try {
     const companyId = req.user.company_id;
     const { rows } = await pool.query(
-      `SELECT device_id, imei, serial_number, nickname, status, last_known_lat, last_known_lng, last_event_time, is_online, group_name, full_address, event_rssi, event_voltage
+      `SELECT device_id, imei, serial_number, nickname, status, last_known_lat, last_known_lng, last_event_time, is_online, group_id, full_address, event_rssi, event_voltage
        FROM devices WHERE company_id = $1 ORDER BY updated_at DESC LIMIT 1000`,
       [String(companyId)]
     );
@@ -25,7 +26,7 @@ async function listDevices(req, res) {
           : null,
       last_event_time: r.last_event_time,
       is_online: r.is_online,
-      group_name: r.group_name,
+      group_id: r.group_id,
       full_address: r.full_address,
       rssi: r.event_rssi,
       voltage: r.event_voltage,

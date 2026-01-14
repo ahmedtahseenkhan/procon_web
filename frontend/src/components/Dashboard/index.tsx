@@ -5,8 +5,8 @@ import {
   InfoWindow,
   useJsApiLoader,
 } from "@react-google-maps/api";
-import { getDevices, getEvents, getDashboardStats, getSeverities } from "../../services/api";
-import { Device, DeviceEvent } from "../../types";
+import { getDevices, getEvents, getGroups, getDashboardStats, getSeverities } from "../../services/api";
+import { Device, DeviceEvent, DeviceGroup } from "../../types";
 import FiltersSection from "../Layout/FiltersSection";
 import currency from "../../assets/icons/currency.svg";
 import joystick from "../../assets/icons/joystick.svg";
@@ -37,6 +37,7 @@ interface AlertFilters {
 }
 
 type GroupStats = {
+  groupId: string;
   name: string;
   color: "green" | "orange" | "red";
   alerts: number;
@@ -82,6 +83,7 @@ function Dashboard() {
   const [groupValue, setGroupValue] = useState("all");
   const [dateValue, setDateValue] = useState("this_month");
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [groups, setGroups] = useState<DeviceGroup[]>([]);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('roadmap');
   const [zoomLevel, setZoomLevel] = useState(6);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -99,6 +101,12 @@ function Dashboard() {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
   });
+
+  const groupNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const g of groups) map[g.group_id] = g.name;
+    return map;
+  }, [groups]);
 
   // Events sorted newest-first
   const sortedEvents = useMemo(
@@ -186,7 +194,7 @@ function Dashboard() {
 
   // FIXED: Better group stats with coordinate validation
   const groupStats = useMemo<GroupStats[]>(() => {
-    const groups = new Map<
+    const groupMap = new Map<
       string,
       {
         devices: Device[];
@@ -202,10 +210,10 @@ function Dashboard() {
       }
     >();
 
-    const ensureGroup = (name: string) => {
-      const key = name || "Ungrouped";
-      if (!groups.has(key)) {
-        groups.set(key, {
+    const ensureGroup = (groupId: string) => {
+      const key = groupId || "ungrouped";
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
           devices: [],
           alerts: 0,
           critical: 0,
@@ -218,11 +226,11 @@ function Dashboard() {
           coordsCount: 0,
         });
       }
-      return groups.get(key)!;
+      return groupMap.get(key)!;
     };
 
     for (const d of devices) {
-      const g = ensureGroup(d.group_name || "Ungrouped");
+      const g = ensureGroup(d.group_id || "");
       g.devices.push(d);
       if (d.is_online) g.online += 1;
 
@@ -241,7 +249,7 @@ function Dashboard() {
       const key = ev.device_id || ev.imei || ev.serial_number;
       if (!key) continue;
       const dev = deviceByKey[key];
-      const g = ensureGroup(dev?.group_name || "Ungrouped");
+      const g = ensureGroup(dev?.group_id || "");
       g.alerts += 1;
       if (ev.severity === "critical") g.critical += 1;
       else if (ev.severity === "warning" || ev.severity === "high")
@@ -253,15 +261,16 @@ function Dashboard() {
     }
 
     const result: GroupStats[] = [];
-    for (const [name, g] of groups.entries()) {
+    for (const [groupId, g] of groupMap.entries()) {
       const machines = g.devices.length;
       const uptime = machines ? (g.online / machines) * 100 : 0;
 
       let color: "green" | "orange" | "red" = "green";
-      if (name === "Group A") color = "orange";
-      else if (name === "Group B") color = "red";
-      else if (name === "Group C") color = "green";
-      else if (name === "Group D") color = "red";
+      const groupName = groupNameById[groupId] || (groupId === 'ungrouped' ? 'Ungrouped' : groupId);
+      if (groupName === "Group A") color = "orange";
+      else if (groupName === "Group B") color = "red";
+      else if (groupName === "Group C") color = "green";
+      else if (groupName === "Group D") color = "red";
 
       // FIXED: Better coordinate calculation with validation
       let lat: number | null = null;
@@ -278,7 +287,8 @@ function Dashboard() {
       }
 
       result.push({
-        name,
+        groupId,
+        name: groupName,
         color,
         alerts: g.alerts,
         machines,
@@ -293,12 +303,12 @@ function Dashboard() {
     }
     result.sort((a, b) => b.alerts - a.alerts);
     return result;
-  }, [devices, events, deviceByKey]);
+  }, [devices, events, deviceByKey, groupNameById]);
 
   const selectedGroupStats = useMemo(
     () =>
       selectedGroup
-        ? groupStats.find((g) => g.name === selectedGroup) || null
+        ? groupStats.find((g) => g.groupId === selectedGroup) || null
         : null,
     [groupStats, selectedGroup]
   );
@@ -355,12 +365,12 @@ function Dashboard() {
     }
   };
 
-  const handleGroupClick = (groupName: string) => {
-    const group = groupStats.find(g => g.name === groupName);
+  const handleGroupClick = (groupId: string) => {
+    const group = groupStats.find(g => g.groupId === groupId);
     if (group && mapRef.current) {
       // Find bounds for this group's devices
       const bounds = new google.maps.LatLngBounds();
-      const groupDevices = devices.filter(d => d.group_name === groupName);
+      const groupDevices = devices.filter(d => (d.group_id || '') === groupId);
 
       let hasCoords = false;
       groupDevices.forEach(d => {
@@ -380,7 +390,7 @@ function Dashboard() {
         });
       }
     }
-    setSelectedGroup(groupName);
+    setSelectedGroup(groupId);
   };
 
   useEffect(() => {
@@ -426,14 +436,12 @@ function Dashboard() {
       // Add 'All' option manually or handle in render
       setSeverityLevels(levels);
     }).catch(console.error);
+    getGroups().then((res) => setGroups(res || [])).catch(console.error);
   }, []);
 
-  const uniqueGroups = useMemo(() => {
-    const groups = devices
-      .map((d) => d.group_name)
-      .filter((g): g is string => !!g && g.trim() !== "");
-    return Array.from(new Set(groups)).sort();
-  }, [devices]);
+  const groupOptions = useMemo(() => {
+    return [{ value: 'all', label: 'All Groups' }, ...groups.map((g) => ({ value: g.group_id, label: g.name }))];
+  }, [groups]);
 
   return (
     <div className="space-y-6">
@@ -668,13 +676,12 @@ function Dashboard() {
           />
 
           <CustomSelect
-            options={uniqueGroups}
-            value={groupValue === 'all' ? 'All Groups' : groupValue}
-            firstOption="All Groups"
+            options={groupOptions}
+            value={groupValue}
             multiSelect={false}
             onChange={(val) => {
               const sel = Array.isArray(val) ? val[0] : val;
-              setGroupValue(sel === 'All Groups' ? 'all' : sel);
+              setGroupValue(sel);
             }}
           />
         </div>
@@ -826,14 +833,14 @@ function Dashboard() {
                 <div className="grid grid-cols-1 gap-y-2">
                   {groupStats.map((g) => (
                     <button
-                      key={g.name}
+                      key={g.groupId}
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleGroupClick(g.name);
+                        handleGroupClick(g.groupId);
                         setIsLegendExpanded(false);
                       }}
-                      className={`flex items-center text-left p-2 rounded-md transition-colors ${selectedGroup === g.name ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                      className={`flex items-center text-left p-2 rounded-md transition-colors ${selectedGroup === g.groupId ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
                     >
                       <span
                         className={`w-3 h-3 rounded-full flex-shrink-0 ${g.color === "red"

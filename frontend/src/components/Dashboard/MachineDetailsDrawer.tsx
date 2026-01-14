@@ -1,5 +1,6 @@
-import { Device, DeviceEvent } from "../../types";
-import { useEffect, useState } from "react";
+import { Device, DeviceEvent, DeviceGroup } from "../../types";
+import { useEffect, useMemo, useState } from "react";
+import { getGroups } from "../../services/api";
 import joystick from "../../assets/icons/joystick.svg";
 import thermometer from "../../assets/icons/thermometer.svg";
 import warning from "../../assets/icons/warning.svg";
@@ -20,11 +21,19 @@ export default function MachineDetailsDrawer({
     events = [],
 }: MachineDetailsDrawerProps) {
     const [isVisible, setIsVisible] = useState(false);
+    const [groups, setGroups] = useState<DeviceGroup[]>([]);
 
     useEffect(() => {
         // Trigger animation
         requestAnimationFrame(() => setIsVisible(true));
+        getGroups().then((res) => setGroups(res || [])).catch(console.error);
     }, []);
+
+    const groupNameById = useMemo(() => {
+        const map: Record<string, string> = {};
+        for (const g of groups) map[g.group_id] = g.name;
+        return map;
+    }, [groups]);
 
     const handleClose = () => {
         setIsVisible(false);
@@ -110,7 +119,7 @@ export default function MachineDetailsDrawer({
                             <div>
                                 <span className="text-gray-500 block">Group</span>
                                 <span className="font-medium text-gray-900">
-                                    {device.group_name || "Ungrouped"}
+                                    {(device.group_id && groupNameById[device.group_id]) || "Ungrouped"}
                                 </span>
                             </div>
                         </div>

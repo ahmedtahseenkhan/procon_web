@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Shield, LogOut } from 'lucide-react';
+import { LayoutDashboard, Shield, LogOut, Layers } from 'lucide-react';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -18,6 +18,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
     const navItems = [
         { name: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/dashboard" },
         { name: "Global Roles", icon: <Shield size={20} />, path: "/roles" },
+        { name: "Groups", icon: <Layers size={20} />, path: "/groups" },
     ];
 
     return (

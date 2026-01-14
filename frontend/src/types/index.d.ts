@@ -8,10 +8,15 @@ export type Device = {
   lon?: number
   last_event_time?: string
   is_online?: boolean
-  group_name?: string
+  group_id?: string
   full_address?: string
   rssi?: number
   voltage?: number
+}
+
+export type DeviceGroup = {
+  group_id: string
+  name: string
 }
 
 export type DeviceEvent = {

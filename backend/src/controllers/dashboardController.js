@@ -63,7 +63,7 @@ async function getDashboardStats(req, res) {
         }
 
         if (groupFilter && groupFilter !== 'all') {
-            revenueQuery += ` AND d.group_name = $${pCount++}`;
+            revenueQuery += ` AND d.group_id = $${pCount++}`;
             revenueParams.push(groupFilter);
         }
 
@@ -77,7 +77,7 @@ async function getDashboardStats(req, res) {
         let machinesQuery = `SELECT COUNT(*) as count FROM devices WHERE company_id = $1 AND is_online = true`;
         const machinesParams = [companyId];
         if (groupFilter && groupFilter !== 'all') {
-            machinesQuery += ` AND group_name = $2`;
+            machinesQuery += ` AND group_id = $2`;
             machinesParams.push(groupFilter);
         }
         const machinesResult = await pool.query(machinesQuery, machinesParams);
@@ -105,7 +105,7 @@ async function getDashboardStats(req, res) {
         }
 
         if (groupFilter && groupFilter !== 'all') {
-            alertsQuery += ` AND d.group_name = $${aCount++}`;
+            alertsQuery += ` AND d.group_id = $${aCount++}`;
             alertsParams.push(groupFilter);
         }
 
@@ -154,7 +154,7 @@ async function getDashboardStats(req, res) {
     `;
         const playersParams = [companyId];
         if (groupFilter && groupFilter !== 'all') {
-            playersQuery += ` AND d.group_name = $2`;
+            playersQuery += ` AND d.group_id = $2`;
             playersParams.push(groupFilter);
         }
         const playersResult = await pool.query(playersQuery, playersParams);

@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CompanyDetail from "./pages/CompanyDetail";
 import GlobalRoles from "./pages/GlobalRoles";
+import Groups from "./pages/Groups";
 import Layout from "./components/Layout/Layout";
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/companies/:companyId" element={<CompanyDetail />} />
         <Route path="/roles" element={<GlobalRoles />} />
+        <Route path="/groups" element={<Groups />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -211,7 +211,7 @@ async function listDevices(req, res) {
         const { companyId } = req.params;
         const { rows } = await pool.query(
             `SELECT device_id, imei, serial_number, nickname, status, last_known_lat, last_known_lng, 
-                    last_event_time, is_online, group_name, full_address 
+                    last_event_time, is_online, group_id, full_address 
              FROM devices 
              WHERE company_id = $1 
              ORDER BY updated_at DESC`,
@@ -341,6 +341,135 @@ async function updateGlobalRole(req, res) {
     }
 }
 
+// Update Device (Assign Group)
+async function updateDevice(req, res) {
+    try {
+        const { companyId, deviceId } = req.params;
+        const { group_id } = req.body;
+
+        // Verify group exists if provided
+        if (group_id) {
+            const groupCheck = await pool.query('SELECT group_id FROM device_groups WHERE group_id = $1', [group_id]);
+            if (groupCheck.rows.length === 0) return res.status(400).json({ error: 'Invalid group_id' });
+        }
+
+        const { rows } = await pool.query(
+            'UPDATE devices SET group_id = $1, updated_at = NOW() WHERE device_id = $2 AND company_id = $3 RETURNING *',
+            [group_id || null, deviceId, companyId]
+        );
+
+        if (rows.length === 0) return res.status(404).json({ error: 'Device not found' });
+        res.json({ device: rows[0] });
+    } catch (error) {
+        console.error('Error updating device:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// --- Company Users (Super Admin) ---
+async function listCompanyUsers(req, res) {
+    try {
+        const { companyId } = req.params;
+        const { rows } = await pool.query(
+            `SELECT user_id, username, email, role_name, is_active, created_at, last_login
+             FROM users
+             WHERE company_id = $1
+             ORDER BY created_at DESC`,
+            [companyId]
+        );
+        res.json({ users: rows });
+    } catch (error) {
+        console.error('Error listing company users:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+async function createCompanyUser(req, res) {
+    try {
+        const { companyId } = req.params;
+        const { username, email, password, role_name } = req.body;
+
+        if (!username || !email || !password || !role_name) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const existingUser = await pool.query(
+            'SELECT user_id FROM users WHERE username = $1 OR email = $2',
+            [username, email]
+        );
+        if (existingUser.rows.length > 0) {
+            return res.status(409).json({ error: 'User already exists' });
+        }
+
+        const passwordHash = await bcrypt.hash(password, 10);
+        const { rows } = await pool.query(
+            `INSERT INTO users (username, email, password_hash, role_name, company_id, is_active)
+             VALUES ($1, $2, $3, $4, $5, true)
+             RETURNING user_id, username, email, role_name, is_active, created_at, last_login`,
+            [username, email, passwordHash, role_name, companyId]
+        );
+
+        res.status(201).json({ user: rows[0] });
+    } catch (error) {
+        console.error('Error creating company user:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+async function updateCompanyUser(req, res) {
+    try {
+        const { companyId, userId } = req.params;
+        const { username, email, password, role_name, is_active } = req.body;
+
+        const updates = [];
+        const values = [];
+        let paramCount = 1;
+
+        if (username) {
+            updates.push(`username = $${paramCount++}`);
+            values.push(username);
+        }
+        if (email) {
+            updates.push(`email = $${paramCount++}`);
+            values.push(email);
+        }
+        if (password) {
+            const passwordHash = await bcrypt.hash(password, 10);
+            updates.push(`password_hash = $${paramCount++}`);
+            values.push(passwordHash);
+        }
+        if (role_name) {
+            updates.push(`role_name = $${paramCount++}`);
+            values.push(role_name);
+        }
+        if (typeof is_active === 'boolean') {
+            updates.push(`is_active = $${paramCount++}`);
+            values.push(is_active);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No updates provided' });
+        }
+
+        values.push(userId);
+        values.push(companyId);
+
+        const { rows } = await pool.query(
+            `UPDATE users
+             SET ${updates.join(', ')}
+             WHERE user_id = $${paramCount} AND company_id = $${paramCount + 1}
+             RETURNING user_id, username, email, role_name, is_active, created_at, last_login`,
+            values
+        );
+
+        if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ user: rows[0] });
+    } catch (error) {
+        console.error('Error updating company user:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
 module.exports = {
     login,
     listCompanies,
@@ -353,5 +482,9 @@ module.exports = {
     listGlobalRoles,
     createGlobalRole,
     updateGlobalRole,
-    listDevices
+    listDevices,
+    updateDevice,
+    listCompanyUsers,
+    createCompanyUser,
+    updateCompanyUser
 };

@@ -1,8 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
-import { getDevices, getEvents, sendDeviceCommand } from "../../services/api";
+import { getDevices, getEvents, getGroups, sendDeviceCommand } from "../../services/api";
 
-
-import { Device, DeviceEvent } from "../../types";
+import { Device, DeviceEvent, DeviceGroup } from "../../types";
 import MFAConfirmation from "../Common/MFAConfirmation";
 import MachineDetailDrawer from "./MachineDetailDrawer";
 import CustomSelect from "../Layout/CustomSelect";
@@ -43,6 +42,7 @@ const severityOptions = ["All Severities", "Critical", "High", "Medium", "Low"];
 function DeviceManagement() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [events, setEvents] = useState<DeviceEvent[]>([]);
+  const [groups, setGroups] = useState<DeviceGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,6 +75,8 @@ function DeviceManagement() {
         ]);
         setDevices(devicesRes.devices || []);
         setEvents(eventsRes.events || []);
+        const groupsRes = await getGroups();
+        setGroups(groupsRes || []);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -86,6 +88,12 @@ function DeviceManagement() {
     const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
+
+  const groupNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const g of groups) map[g.group_id] = g.name;
+    return map;
+  }, [groups]);
 
   const handleMachineControl = (
     device: Device,
@@ -188,11 +196,8 @@ function DeviceManagement() {
   }, [devices, events]);
 
   const uniqueGroups = useMemo(() => {
-    const groups = devices
-      .map((d) => d.group_name)
-      .filter((g): g is string => !!g && g.trim() !== "");
-    return Array.from(new Set(groups)).sort();
-  }, [devices]);
+    return groups.map((g) => ({ value: g.group_id, label: g.name }));
+  }, [groups]);
 
   const filteredDevices = useMemo(() => {
     let filtered = devicesWithStats;
@@ -211,8 +216,11 @@ function DeviceManagement() {
     }
 
     // Filter by Cluster (Group)
-    if (selectedClusters.length > 0 && !selectedClusters.includes("All Clusters")) {
-      filtered = filtered.filter(d => d.group_name && selectedClusters.includes(d.group_name));
+    if (selectedClusters.length > 0 && selectedClusters.length < groups.length) {
+      filtered = filtered.filter((d) => {
+        const gid = d.group_id || '';
+        return gid && selectedClusters.includes(gid);
+      });
     }
 
     // Filter by search term
@@ -289,7 +297,7 @@ function DeviceManagement() {
           <div className="flex items-center space-x-4">
             <CustomSelect
               options={uniqueGroups}
-              firstOption="All Clusters"
+              firstOption="All Groups"
               multiSelect={true}
               onChange={(selected) => setSelectedClusters(Array.isArray(selected) ? selected : [selected])}
             />
@@ -371,7 +379,7 @@ function DeviceManagement() {
                         <span className="text-[14px] text-[rgba(0,7,20,0.62)]">
                           Group
                         </span>
-                        <p className="font-medium text-[14px]">{device.group_name || 'None'}</p>
+                        <p className="font-medium text-[14px]">{(device.group_id && groupNameById[device.group_id]) || 'Ungrouped'}</p>
                       </div>
                     </div>
                   </div>

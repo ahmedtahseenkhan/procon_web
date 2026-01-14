@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import CustomSelect from "../Layout/CustomSelect";
-import { getDevices } from "../../services/api";
-import { Device } from "../../types";
+import { getGroups } from "../../services/api";
+import { DeviceGroup } from "../../types";
 
 interface MachineData {
   id: string;
@@ -87,29 +87,26 @@ interface MachinePerformanceTableProps {
 }
 
 export default function MachinePerformanceTable({ machines: propMachines = [] }: MachinePerformanceTableProps) {
-  const [selectedGroup, setSelectedGroup] = useState("All Machines");
+  const [selectedGroup, setSelectedGroup] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
   const [sortBy, setSortBy] = useState("Name");
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [groups, setGroups] = useState<DeviceGroup[]>([]);
 
   useEffect(() => {
-    getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+    getGroups().then((res) => setGroups(res || [])).catch(console.error);
   }, []);
 
-  const uniqueGroups = useMemo(() => {
-    const groups = devices
-      .map((d) => d.group_name)
-      .filter((g): g is string => !!g && g.trim() !== "");
-    return ["All Machines", ...Array.from(new Set(groups)).sort()];
-  }, [devices]);
+  const groupOptions = useMemo(() => {
+    return [{ value: 'all', label: 'All Machines' }, ...groups.map((g) => ({ value: g.group_id, label: g.name }))];
+  }, [groups]);
 
   // Use provided machines or fall back to mock data
   const displayMachines = propMachines.length > 0 ? propMachines : machineData;
 
   // Filter by selected group
-  const filteredMachines = selectedGroup === "All Machines"
+  const filteredMachines = selectedGroup === "all"
     ? displayMachines
-    : displayMachines.filter((m: any) => m.groupName === selectedGroup);
+    : displayMachines.filter((m: any) => m.group_id === selectedGroup);
 
   return (
     <div className="animate-fade-in animate-slide-in-from-bottom-4">
@@ -121,7 +118,7 @@ export default function MachinePerformanceTable({ machines: propMachines = [] }:
           </h3>
           <div className="flex items-center space-x-3">
             <CustomSelect
-              options={uniqueGroups}
+              options={groupOptions}
               value={selectedGroup}
               multiSelect={false}
               onChange={(val) => setSelectedGroup(val as string)}

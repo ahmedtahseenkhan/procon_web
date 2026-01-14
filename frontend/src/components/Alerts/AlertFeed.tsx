@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
-import { getEvents, getDevices, acknowledgeEvent, getSeverities } from "../../services/api";
-import { DeviceEvent } from "../../types";
+import { getEvents, getDevices, getGroups, acknowledgeEvent, getSeverities } from "../../services/api";
+import { DeviceEvent, DeviceGroup } from "../../types";
 import AlertDetailModal from "./AlertDetailModal";
 import searchIcon from "../../assets/icons/search.svg";
 import DatePicker from "./DatePicker";
@@ -23,7 +23,8 @@ interface AlertFilters {
 
 function AlertFeed() {
   const [events, setEvents] = useState<DeviceEvent[]>([]);
-  const [devicesMap, setDevicesMap] = useState<Record<string, { group_name?: string; nickname?: string }>>({});
+  const [devicesMap, setDevicesMap] = useState<Record<string, { group_id?: string; nickname?: string }>>({});
+  const [groups, setGroups] = useState<DeviceGroup[]>([]);
   const [search, setSearch] = useState("");
   const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
   const [page, setPage] = useState(1);
@@ -45,16 +46,17 @@ function AlertFeed() {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const [evRes, devRes, sevRes] = await Promise.all([getEvents(), getDevices(), getSeverities()]);
+        const [evRes, devRes, sevRes, groupsRes] = await Promise.all([getEvents(), getDevices(), getSeverities(), getGroups()]);
         setEvents(evRes.events || []);
+        setGroups(groupsRes || []);
 
         // Handle severity levels
         setSeverityLevels(sevRes);
 
-        const m: Record<string, { group_name?: string; nickname?: string }> = {};
+        const m: Record<string, { group_id?: string; nickname?: string }> = {};
         for (const d of (devRes.devices || [])) {
           const key = d.device_id || d.serial_number || d.imei;
-          if (key) m[key] = { group_name: d.group_name, nickname: d.nickname };
+          if (key) m[key] = { group_id: d.group_id, nickname: d.nickname };
         }
         setDevicesMap(m);
       } catch (error) {
@@ -68,12 +70,15 @@ function AlertFeed() {
     return () => clearInterval(interval);
   }, []);
 
-  const uniqueGroups = useMemo(() => {
-    const groups = Object.values(devicesMap)
-      .map((d) => d.group_name)
-      .filter((g): g is string => !!g && g.trim() !== "");
-    return Array.from(new Set(groups)).sort();
-  }, [devicesMap]);
+  const groupNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const g of groups) map[g.group_id] = g.name;
+    return map;
+  }, [groups]);
+
+  const groupOptions = useMemo(() => {
+    return groups.map((g) => ({ value: g.group_id, label: g.name }));
+  }, [groups]);
 
   const filteredEvents = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -93,10 +98,11 @@ function AlertFeed() {
 
       // Cluster filter (selectedClusters empty = all)
       const machine = e.device_id || e.serial_number || e.imei;
-      const cluster = String(devicesMap[machine]?.group_name || "").toLowerCase();
+      const clusterId = String(devicesMap[machine]?.group_id || "");
+      const clusterName = String((clusterId && groupNameById[clusterId]) || "").toLowerCase();
       const nickname = String(devicesMap[machine]?.nickname || "").toLowerCase();
-      if (selectedClusters.length > 0) {
-        if (!selectedClusters.map((c) => c.toLowerCase()).includes(cluster)) return false;
+      if (selectedClusters.length > 0 && selectedClusters.length < groups.length) {
+        if (!clusterId || !selectedClusters.includes(clusterId)) return false;
       }
 
       // Search: event_id (primary), plus machine / cluster / nickname
@@ -106,7 +112,7 @@ function AlertFeed() {
         if (
           !eventIdStr.includes(term) &&
           !machineStr.includes(term) &&
-          !cluster.includes(term) &&
+          !clusterName.includes(term) &&
           !nickname.includes(term)
         ) {
           return false;
@@ -271,8 +277,8 @@ function AlertFeed() {
           />
 
           <CustomSelect
-            options={uniqueGroups}
-            firstOption="All Clusters"
+            options={groupOptions}
+            firstOption="All Groups"
             multiSelect={true}
             value={selectedClusters}
             onChange={(selected) => {
@@ -301,7 +307,7 @@ function AlertFeed() {
                   Alert
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 w-[248px] min-w-[160px] h-[48px] min-h-[44px] text-[14px] leading-[20px] tracking-[0.02em] font-[Inter]">
-                  Cluster
+                  Group
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 w-[248px] min-w-[160px] h-[48px] min-h-[44px] text-[14px] leading-[20px] tracking-[0.02em] font-[Inter]">
                   <button
@@ -324,7 +330,8 @@ function AlertFeed() {
             <tbody>
               {pageEvents.map((ev: any) => {
                 const machine = ev.device_id || ev.serial_number || ev.imei;
-                const cluster = devicesMap[machine]?.group_name || '-';
+                const clusterId = devicesMap[machine]?.group_id;
+                const cluster = (clusterId && groupNameById[clusterId]) || '-';
                 const pill = ev.category && ev.category.toLowerCase() === 'maintenance' ? 'Maintenance' : (String(ev.severity || '').toUpperCase());
                 return (
                   <tr key={ev.event_uuid || `${machine}-${ev.event_timestamp}`}

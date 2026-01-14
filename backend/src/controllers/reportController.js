@@ -15,9 +15,11 @@ async function exportFinancials(req, res) {
         fs.total_cash_in,
         fs.transaction_count,
         d.nickname,
-        d.group_name
+        d.group_id,
+        dg.name as group_name
       FROM financial_summary fs
       LEFT JOIN devices d ON fs.device_id = d.device_id
+      LEFT JOIN device_groups dg ON d.group_id = dg.group_id
       WHERE fs.company_id = $1
     `;
     const params = [companyId];
@@ -52,7 +54,7 @@ async function exportFinancials(req, res) {
     }
 
     if (groupFilter && groupFilter !== 'all') {
-      query += ` AND d.group_name = $${paramCount++}`;
+      query += ` AND d.group_id = $${paramCount++}`;
       params.push(groupFilter);
     }
 
@@ -285,7 +287,7 @@ async function getMachinePerformance(req, res) {
 
     let groupFilterClause = '';
     if (groupFilter && groupFilter !== 'all' && groupFilter !== 'All Machines') {
-      groupFilterClause = ` AND d.group_name = $${paramCount++}`;
+      groupFilterClause = ` AND d.group_id = $${paramCount++}`;
       params.push(groupFilter);
     }
 
@@ -293,7 +295,8 @@ async function getMachinePerformance(req, res) {
       SELECT 
         fs.device_id,
         d.nickname,
-        d.group_name,
+        d.group_id,
+        dg.name as group_name,
         d.is_online,
         SUM(fs.total_cash_in) as total_revenue,
         SUM(fs.total_vouchers) as total_vouchers,
@@ -301,8 +304,9 @@ async function getMachinePerformance(req, res) {
         COUNT(DISTINCT fs.summary_date) as days_active
       FROM financial_summary fs
       LEFT JOIN devices d ON fs.device_id = d.device_id
+      LEFT JOIN device_groups dg ON d.group_id = dg.group_id
       WHERE fs.company_id = $1 ${dateFilter} ${groupFilterClause}
-      GROUP BY fs.device_id, d.nickname, d.group_name, d.is_online
+      GROUP BY fs.device_id, d.nickname, d.group_id, dg.name, d.is_online
       ORDER BY total_revenue DESC
     `;
 
@@ -321,6 +325,7 @@ async function getMachinePerformance(req, res) {
       return {
         id: row.device_id,
         name: row.nickname || row.device_id,
+        group_id: row.group_id,
         groupName: row.group_name,
         uptime,
         efficiency,

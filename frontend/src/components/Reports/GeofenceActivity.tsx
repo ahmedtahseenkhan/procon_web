@@ -7,25 +7,22 @@ import download from "../../assets/icons/download.svg";
 // Removed static severityOptions
 
 import { useEffect, useState, useMemo } from "react";
-import { getDevices, getSeverities } from "../../services/api";
-import { Device } from "../../types";
+import { getGroups, getSeverities } from "../../services/api";
+import { DeviceGroup } from "../../types";
 
 function GeofenceActivity() {
   const navigate = useNavigate();
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [groups, setGroups] = useState<DeviceGroup[]>([]);
   const [severityLevels, setSeverityLevels] = useState<{ code: string; label: string }[]>([]);
 
   useEffect(() => {
-    getDevices().then((res) => setDevices(res.devices || [])).catch(console.error);
+    getGroups().then((res) => setGroups(res || [])).catch(console.error);
     getSeverities().then(setSeverityLevels).catch(console.error);
   }, []);
 
-  const uniqueGroups = useMemo(() => {
-    const groups = devices
-      .map((d) => d.group_name)
-      .filter((g): g is string => !!g && g.trim() !== "");
-    return Array.from(new Set(groups)).sort();
-  }, [devices]);
+  const groupOptions = useMemo(() => {
+    return groups.map((g) => ({ value: g.group_id, label: g.name }));
+  }, [groups]);
 
   return (
     <div className="space-y-6">
@@ -94,7 +91,7 @@ function GeofenceActivity() {
           />
 
           <CustomSelect
-            options={uniqueGroups}
+            options={groupOptions}
             firstOption="All Clusters"
             multiSelect={true}
             onChange={(selected) => console.log("Selected:", selected)}

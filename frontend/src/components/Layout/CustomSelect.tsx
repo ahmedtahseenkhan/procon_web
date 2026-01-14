@@ -7,8 +7,18 @@ import {
   Transition,
 } from "@headlessui/react";
 
+type SelectOption = string | { value: string; label: string };
+
+function getOptionValue(option: SelectOption) {
+  return typeof option === 'string' ? option : option.value;
+}
+
+function getOptionLabel(option: SelectOption) {
+  return typeof option === 'string' ? option : option.label;
+}
+
 interface CustomSelectProps {
-  options: string[];
+  options: SelectOption[];
   value?: string | string[];
   onChange?: (value: string | string[]) => void;
   multiSelect?: boolean;
@@ -30,8 +40,10 @@ export default function CustomSelect({
   buttonClassName,
   optionsClassName,
 }: CustomSelectProps) {
+  const optionValues = options.map(getOptionValue);
+
   const [selected, setSelected] = useState<string | string[]>(
-    value ?? (multiSelect ? [] : options[0])
+    value ?? (multiSelect ? [] : optionValues[0])
   );
 
   useEffect(() => {
@@ -56,14 +68,19 @@ export default function CustomSelect({
   const isAllSelected =
     multiSelect &&
     Array.isArray(selected) &&
-    selected.length === options.length;
+    selected.length === optionValues.length;
+
+  const selectedLabel =
+    !multiSelect && typeof selected === 'string'
+      ? getOptionLabel(options.find((o) => getOptionValue(o) === selected) ?? selected)
+      : '';
 
   const displayText =
     multiSelect && Array.isArray(selected)
       ? selected.length === 0
-        ? "Select options"
+        ? (firstOption || "Select options")
         : `${selected.length} selected`
-      : (selected as string);
+      : selectedLabel || (selected as string);
 
   const defaultButtonClass = `w-full px-3 py-2 border border-[rgba(235,235,235,1)] rounded text-left bg-white flex justify-between items-center outline-none transition-all ${isAllSelected ? "h-auto min-h-[40px]" : "h-[40px]"
     }`;
@@ -137,10 +154,10 @@ export default function CustomSelect({
                       <li
                         onClick={() => {
                           if (multiSelect) {
-                            const all = [...options];
+                            const all = [...optionValues];
                             const isAllSelected =
                               Array.isArray(selected) &&
-                              selected.length === options.length;
+                              selected.length === optionValues.length;
                             handleChange(isAllSelected ? [] : all);
                           } else {
                             handleChange(firstOption);
@@ -158,17 +175,17 @@ export default function CustomSelect({
                 )}
 
                 {options.map((option) => (
-                  <ListboxOption key={option} value={option} as={Fragment}>
+                  <ListboxOption key={getOptionValue(option)} value={getOptionValue(option)} as={Fragment}>
                     {({ active, selected: isSelected }: { active: boolean; selected: boolean }) => (
                       <li
                         onClick={() =>
                           multiSelect
-                            ? handleMultiSelect(option)
-                            : handleChange(option)
+                            ? handleMultiSelect(getOptionValue(option))
+                            : handleChange(getOptionValue(option))
                         }
                         className={`w-full text-left px-3 py-2 mb-1 rounded-md transition-colors flex items-center gap-2 cursor-pointer list-none ${(multiSelect &&
                           Array.isArray(selected) &&
-                          selected.includes(option)) ||
+                          selected.includes(getOptionValue(option))) ||
                           active
                           ? "bg-blue-600 text-white"
                           : "text-[rgba(28,32,36,1)] hover:bg-blue-600 hover:text-white"
@@ -179,13 +196,13 @@ export default function CustomSelect({
                             type="checkbox"
                             checked={
                               Array.isArray(selected) &&
-                              selected.includes(option)
+                              selected.includes(getOptionValue(option))
                             }
                             onChange={() => { }}
                             className="mr-2 w-4 h-4 border-gray-300 rounded focus:ring-0"
                           />
                         )}
-                        {option}
+                        {getOptionLabel(option)}
                       </li>
                     )}
                   </ListboxOption>

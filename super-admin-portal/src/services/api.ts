@@ -66,6 +66,34 @@ export async function superAdminGetRoles(token: string, companyId: string) {
     return response.json();
 }
 
+export async function superAdminGetCompanyUsers(token: string, companyId: string) {
+    const response = await fetch(`${base}/api/super-admin/companies/${companyId}/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Failed to fetch users');
+    return response.json();
+}
+
+export async function superAdminCreateCompanyUser(token: string, companyId: string, userData: any) {
+    const response = await fetch(`${base}/api/super-admin/companies/${companyId}/users`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+    });
+    if (!response.ok) throw new Error('Failed to create user');
+    return response.json();
+}
+
+export async function superAdminUpdateCompanyUser(token: string, companyId: string, userId: string, userData: any) {
+    const response = await fetch(`${base}/api/super-admin/companies/${companyId}/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+    });
+    if (!response.ok) throw new Error('Failed to update user');
+    return response.json();
+}
+
 export async function superAdminCreateRole(token: string, companyId: string, roleData: any) {
     const response = await fetch(`${base}/api/super-admin/companies/${companyId}/roles`, {
         method: 'POST',
@@ -104,10 +132,59 @@ export async function superAdminUpdateGlobalRole(token: string, roleId: string, 
     return response.json();
 }
 
+// --- Generic Groups (Global) ---
+export async function getGenericGroups(token: string) {
+    const response = await fetch(`${base}/api/super-admin/groups`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Failed to fetch groups');
+    return response.json();
+}
+
+export async function createGenericGroup(token: string, groupData: any) {
+    const response = await fetch(`${base}/api/super-admin/groups`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(groupData)
+    });
+    if (!response.ok) throw new Error('Failed to create group');
+    return response.json();
+}
+
+export async function updateGenericGroup(token: string, groupId: string, groupData: any) {
+    const response = await fetch(`${base}/api/super-admin/groups/${groupId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(groupData)
+    });
+    if (!response.ok) throw new Error('Failed to update group');
+    return response.json();
+}
+
+export async function deleteGenericGroup(token: string, groupId: string) {
+    const response = await fetch(`${base}/api/super-admin/groups/${groupId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Failed to delete group');
+    return response.json();
+}
+
+
 export async function superAdminGetDevices(token: string, companyId: string) {
     const response = await fetch(`${base}/api/super-admin/companies/${companyId}/devices`, {
         headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!response.ok) throw new Error('Failed to fetch devices');
+    return response.json();
+}
+
+export async function superAdminUpdateDevice(token: string, companyId: string, deviceId: string, data: any) {
+    const response = await fetch(`${base}/api/super-admin/companies/${companyId}/devices/${deviceId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to update device');
     return response.json();
 }

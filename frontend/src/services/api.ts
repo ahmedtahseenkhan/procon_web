@@ -1,3 +1,5 @@
+import type { DeviceGroup } from '../types'
+
 const base = import.meta.env.VITE_API_BASE_URL || ''
 function authHeader(): Record<string, string> {
   const t = localStorage.getItem('token')
@@ -173,7 +175,7 @@ export async function updateRole(roleId: string, roleData: any) {
   return response.json();
 }
 // Group Mgmt (if separate from metadata)
-export async function getGroups() {
+export async function getGroups(): Promise<DeviceGroup[]> {
   const response = await fetch(`${base}/api/metadata/groups`, {
     headers: authHeader(),
   });

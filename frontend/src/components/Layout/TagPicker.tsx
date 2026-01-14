@@ -6,8 +6,18 @@ import {
   Transition,
 } from "@headlessui/react";
 
+type TagOption = string | { value: string; label: string };
+
+function getOptionValue(option: TagOption) {
+  return typeof option === 'string' ? option : option.value;
+}
+
+function getOptionLabel(option: TagOption) {
+  return typeof option === 'string' ? option : option.label;
+}
+
 interface TagPickerProps {
-  options: string[];
+  options: TagOption[];
   value?: string[];
   onChange?: (value: string[]) => void;
   containerClassName?: string;
@@ -22,6 +32,8 @@ export default function TagPicker({
   placeholder = "Select options",
 }: TagPickerProps) {
   const [selected, setSelected] = useState<string[]>(value);
+ 
+  const optionByValue = new Map(options.map((o) => [getOptionValue(o), o]));
 
   const handleChange = (val: string[]) => {
     setSelected(val);
@@ -61,7 +73,7 @@ export default function TagPicker({
                     className="relative flex items-center gap-3 bg-white border border-gray-300 rounded-full px-2 py-1  h-[28px] box-border"
                   >
                     <span className="text-sm font-normal  text-gray-800 ">
-                      {tag}
+                      {getOptionLabel(optionByValue.get(tag) ?? tag)}
                     </span>
                     <button
                       onClick={(e) => handleRemoveTag(tag, e)}
@@ -115,21 +127,21 @@ export default function TagPicker({
               <ListboxOptions className="absolute mt-1 w-full rounded-[4px] border border-[rgba(0,0,51,0.06)] bg-white shadow-[0_12px_32px_-16px_rgba(0,0,51,0.05)] py-2 px-2 text-sm z-50 max-h-[240px] overflow-y-auto">
                 {options.map((option) => (
                   <button
-                    key={option}
-                    onClick={() => handleToggleTag(option)}
+                    key={getOptionValue(option)}
+                    onClick={() => handleToggleTag(getOptionValue(option))}
                     className={`w-full text-left px-3 py-2 mb-1 rounded-md transition-colors flex items-center gap-2 ${
-                      selected.includes(option)
+                      selected.includes(getOptionValue(option))
                         ? "bg-blue-600 text-white"
                         : "hover:bg-blue-600 text-gray-500 hover:text-white"
                     }`}
                   >
                     <input
                       type="checkbox"
-                      checked={selected.includes(option)}
+                      checked={selected.includes(getOptionValue(option))}
                       onChange={() => {}}
                       className="w-4 h-4 cursor-pointer border-gray-300 rounded focus:ring-0"
                     />
-                    {option}
+                    {getOptionLabel(option)}
                   </button>
                 ))}
               </ListboxOptions>

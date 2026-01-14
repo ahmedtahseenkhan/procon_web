@@ -21,14 +21,34 @@ router.get('/companies', verifySuperAdmin, listCompanies);
 router.post('/companies', verifySuperAdmin, createCompany);
 router.delete('/companies/:companyId', verifySuperAdmin, deleteCompany);
 
+const { listGenericGroups, createGenericGroup, updateGenericGroup, deleteGenericGroup } = require('../controllers/groupController');
+
+// ... (existing lines) ...
+
+// Generic Groups (Global)
+router.get('/groups', verifySuperAdmin, listGenericGroups);
+router.post('/groups', verifySuperAdmin, createGenericGroup);
+router.put('/groups/:groupId', verifySuperAdmin, updateGenericGroup);
+router.delete('/groups/:groupId', verifySuperAdmin, deleteGenericGroup);
+
 // Nested Resources
-const { listGroups, createGroup, listGlobalRoles, createGlobalRole, updateGlobalRole } = require('../controllers/superAdminController');
+const { listGroups, createGroup, listGlobalRoles, createGlobalRole, updateGlobalRole, listRoles, createRole, listCompanyUsers, createCompanyUser, updateCompanyUser } = require('../controllers/superAdminController');
 router.get('/companies/:companyId/groups', verifySuperAdmin, listGroups);
 router.post('/companies/:companyId/groups', verifySuperAdmin, createGroup);
 
+// Company Roles
+router.get('/companies/:companyId/roles', verifySuperAdmin, listRoles);
+router.post('/companies/:companyId/roles', verifySuperAdmin, createRole);
+
+// Company Users
+router.get('/companies/:companyId/users', verifySuperAdmin, listCompanyUsers);
+router.post('/companies/:companyId/users', verifySuperAdmin, createCompanyUser);
+router.put('/companies/:companyId/users/:userId', verifySuperAdmin, updateCompanyUser);
+
 // Devices
-const { listDevices } = require('../controllers/superAdminController');
+const { listDevices, updateDevice } = require('../controllers/superAdminController');
 router.get('/companies/:companyId/devices', verifySuperAdmin, listDevices);
+router.put('/companies/:companyId/devices/:deviceId', verifySuperAdmin, updateDevice);
 
 // Global Roles
 router.get('/roles', verifySuperAdmin, listGlobalRoles);

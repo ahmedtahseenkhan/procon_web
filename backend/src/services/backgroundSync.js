@@ -50,7 +50,6 @@ async function upsertDeviceFromApi(client, d) {
   const eventVoltage = d.eventvoltage != null && d.eventvoltage !== '' ? parseFloat(d.eventvoltage) : null;
   const activationDate = d.activationdate || null;
   const deliveryDate = d.deliverydate || null;
-  const groupName = d.groupname || null;
   const fullAddress = d.fulladdress || null;
   const country = d.country || null;
   const admin1 = d.admin1 || null;
@@ -61,8 +60,8 @@ async function upsertDeviceFromApi(client, d) {
   const streetNumber = d.number || null;
   const postalCode = d.postalcode || null;
   await client.query(
-    `INSERT INTO devices(device_id, imei, serial_number, company_id, account_id, nickname, last_known_lat, last_known_lng, last_event_time, vehicle_stock, event_satellites, event_rssi, event_voltage, activation_date, delivery_date, group_name, full_address, country, admin1, admin2, admin3, city, route, street_number, postal_code, updated_at)
-     VALUES($1,$2,$1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24, now())
+    `INSERT INTO devices(device_id, imei, serial_number, company_id, account_id, nickname, last_known_lat, last_known_lng, last_event_time, vehicle_stock, event_satellites, event_rssi, event_voltage, activation_date, delivery_date, full_address, country, admin1, admin2, admin3, city, route, street_number, postal_code, updated_at)
+     VALUES($1,$2,$1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23, now())
      ON CONFLICT (device_id)
      DO UPDATE SET imei = COALESCE(EXCLUDED.imei, devices.imei),
                    serial_number = devices.serial_number,
@@ -78,7 +77,6 @@ async function upsertDeviceFromApi(client, d) {
                    event_voltage = COALESCE(EXCLUDED.event_voltage, devices.event_voltage),
                    activation_date = COALESCE(EXCLUDED.activation_date, devices.activation_date),
                    delivery_date = COALESCE(EXCLUDED.delivery_date, devices.delivery_date),
-                   group_name = COALESCE(EXCLUDED.group_name, devices.group_name),
                    full_address = COALESCE(EXCLUDED.full_address, devices.full_address),
                    country = COALESCE(EXCLUDED.country, devices.country),
                    admin1 = COALESCE(EXCLUDED.admin1, devices.admin1),
@@ -89,7 +87,7 @@ async function upsertDeviceFromApi(client, d) {
                    street_number = COALESCE(EXCLUDED.street_number, devices.street_number),
                    postal_code = COALESCE(EXCLUDED.postal_code, devices.postal_code),
                    updated_at = now()`,
-    [deviceId, imei, companyId, accountId, nickname, lat, lng, lastGpsTime, vehicleStock, eventSatellites, eventRssi, eventVoltage, activationDate, deliveryDate, groupName, fullAddress, country, admin1, admin2, admin3, city, route, streetNumber, postalCode]
+    [deviceId, imei, companyId, accountId, nickname, lat, lng, lastGpsTime, vehicleStock, eventSatellites, eventRssi, eventVoltage, activationDate, deliveryDate, fullAddress, country, admin1, admin2, admin3, city, route, streetNumber, postalCode]
   );
 }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { superAdminGetGlobalRoles, superAdminCreateGlobalRole, superAdminUpdateGlobalRole } from "../services/api";
-import { Shield, Edit2, Check } from "lucide-react";
+import { Shield, Edit2 } from "lucide-react";
 
 const PERMISSIONS_LIST = [
     { key: "manage_users", label: "Manage Users" },
@@ -99,7 +99,7 @@ export default function GlobalRoles() {
                             setEditingRoleId(null);
                             setShowModal(true);
                         }}
-                        className="bg-[rgb(16, 185, 129)] text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-emerald-700 transition font-medium"
+                        className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:bg-emerald-700 transition font-medium"
                     >
                         + Create Global Role
                     </button>
@@ -158,7 +158,7 @@ export default function GlobalRoles() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
                                 <input
-                                    className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-[rgb(16, 185, 129)]/20 focus:border-[rgb(16, 185, 129)] outline-none"
+                                    className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                                     value={roleForm.role_name}
                                     onChange={e => setRoleForm({ ...roleForm, role_name: e.target.value })}
                                     required
@@ -168,7 +168,7 @@ export default function GlobalRoles() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                 <input
-                                    className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-[rgb(16, 185, 129)]/20 focus:border-[rgb(16, 185, 129)] outline-none"
+                                    className="w-full border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                                     value={roleForm.description}
                                     onChange={e => setRoleForm({ ...roleForm, description: e.target.value })}
                                     placeholder="Optional description"
@@ -182,17 +182,14 @@ export default function GlobalRoles() {
                                     {PERMISSIONS_LIST.map(p => {
                                         const isChecked = !!roleForm.permissions[p.key];
                                         return (
-                                            <label key={p.key} className="flex items-center space-x-3 cursor-pointer group">
-                                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isChecked ? 'bg-[rgb(16, 185, 129)] border-[rgb(16, 185, 129)]' : 'bg-white border-gray-300 group-hover:border-[rgb(16, 185, 129)]'}`}>
-                                                    {isChecked && <Check size={14} className="text-white" />}
-                                                </div>
+                                            <label key={p.key} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-100 p-2 rounded transition">
                                                 <input
                                                     type="checkbox"
-                                                    className="hidden"
+                                                    className="w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
                                                     checked={isChecked}
                                                     onChange={() => togglePermission(p.key)}
                                                 />
-                                                <span className="text-sm text-gray-700">{p.label}</span>
+                                                <span className="text-sm text-gray-700 font-medium">{p.label}</span>
                                             </label>
                                         );
                                     })}
@@ -201,7 +198,7 @@ export default function GlobalRoles() {
 
                             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition font-medium">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-[rgb(16, 185, 129)] text-white rounded-lg hover:bg-emerald-700 transition font-medium shadow-sm">
+                                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium shadow-sm">
                                     {isEditing ? 'Update Role' : 'Create Role'}
                                 </button>
                             </div>
