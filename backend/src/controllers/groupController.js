@@ -24,7 +24,10 @@ async function createGenericGroup(req, res) {
         res.status(201).json({ group: rows[0] });
     } catch (error) {
         console.error('Error creating generic group:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'Group name already exists' });
+        }
+        res.status(500).json({ error: error.message });
     }
 }
 
