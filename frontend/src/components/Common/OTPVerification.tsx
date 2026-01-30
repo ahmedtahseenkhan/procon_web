@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import logoMark from '../../assets/logos/logo-mark.svg'
+import rykenLogo from '../../assets/logos/ryken-logo.png'
 
 interface OTPVerificationProps {
   username: string
@@ -15,7 +15,7 @@ export default function OTPVerification({ username, onVerify, onBack, isLoading 
 
   const handleInputChange = (index: number, value: string) => {
     if (value.length > 1) return // Prevent multiple characters
-    
+
     const newOtp = [...otp]
     newOtp[index] = value
     setOtp(newOtp)
@@ -48,7 +48,7 @@ export default function OTPVerification({ username, onVerify, onBack, isLoading 
       newOtp[i] = pastedData[i]
     }
     setOtp(newOtp)
-    
+
     // Focus the next empty input or the last one
     const nextEmptyIndex = newOtp.findIndex((digit, index) => index >= pastedData.length && !digit)
     const focusIndex = nextEmptyIndex !== -1 ? nextEmptyIndex : Math.min(pastedData.length, 5)
@@ -60,10 +60,9 @@ export default function OTPVerification({ username, onVerify, onBack, isLoading 
       <div className="w-full px-4 md:w-[582px]">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 rounded-[4px] p-[40px] border-[rgba(0,0,51,0.0588)]">
           {/* Logo and Brand */}
-          <div className="mb-4">
-            <div className="flex items-center">
-              <img src={logoMark} alt="Procon logo" className="w-10 h-10" />
-              <span className="ml-3 text-2xl font-bold text-primary-600">Procon Gaming</span>
+          <div className="mb-4 text-center">
+            <div className="flex items-center justify-center">
+              <img src={rykenLogo} alt="Ryken Security" className="h-16 w-auto" />
             </div>
             <h2 className="mt-5 font-inter font-bold text-xl tracking-normal text-gray-900">
               Enter the verification code
@@ -73,10 +72,10 @@ export default function OTPVerification({ username, onVerify, onBack, isLoading 
           {/* Instructions */}
           <div className="mb-3">
             <p className="font-medium text-sm text-gray-900">
-                We've sent a 6-digit code to your email:
-              </p>
-              <p className="font-medium text-sm text-gray-900 mt-1">
-                Please check your inbox and enter the code below to continue.
+              We've sent a 6-digit code to your email:
+            </p>
+            <p className="font-medium text-sm text-gray-900 mt-1">
+              Please check your inbox and enter the code below to continue.
             </p>
           </div>
 
@@ -97,7 +96,7 @@ export default function OTPVerification({ username, onVerify, onBack, isLoading 
                     onChange={(e) => handleInputChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={handlePaste}
-                   className="w-12 h-12 border-0 text-center text-xl font-semibold rounded-sm bg-[#F9FAFB] focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-12 h-12 border-0 text-center text-xl font-semibold rounded-sm bg-[#F9FAFB] focus:outline-none focus:ring-1 focus:ring-primary-500"
                     disabled={isLoading}
                   />
                 ))}
@@ -112,7 +111,7 @@ export default function OTPVerification({ username, onVerify, onBack, isLoading 
             )}
 
             {/* Expiry Info */}
-           <div className="text-md text-[rgba(17,17,17,1)]">
+            <div className="text-md text-[rgba(17,17,17,1)]">
               This code expires in 10 minutes.
             </div>
 
@@ -120,7 +119,7 @@ export default function OTPVerification({ username, onVerify, onBack, isLoading 
             <button
               type="submit"
               disabled={otp.join('').length !== 6 || isLoading}
-              className="text-sm w-full h-8 flex items-center justify-center gap-2 bg-primary-600 text-white rounded-md px-3 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"  
+              className="text-sm w-full h-8 flex items-center justify-center gap-2 bg-primary-600 text-white rounded-md px-3 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {isLoading ? 'Verifying...' : 'Verify'}
             </button>

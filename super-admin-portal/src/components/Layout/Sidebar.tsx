@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { LayoutDashboard, Shield, LogOut, Layers } from 'lucide-react';
+import rykenLogo from "../../assets/ryken-logo.png";
 
 interface SidebarProps {
     isOpen: boolean;
@@ -26,13 +27,9 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             className={`bg-white border-r border-gray-100 flex flex-col w-64 fixed h-full transition-transform z-30 ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
                 }`}
         >
-            <div className="h-16 flex items-center px-6 border-b border-gray-50">
-                <div className="flex items-center gap-2 text-emerald-500">
-                    <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
-                        <path d="M20 0C8.954 0 0 8.954 0 20s8.954 20 20 20 20-8.954 20-20S31.046 0 20 0zm0 36c-8.837 0-16-7.163-16-16S11.163 4 20 4s16 7.163 16 16-7.163 16-16 16z" fill="#10B981" />
-                        <path d="M15 12h10c2.761 0 5 2.239 5 5s-2.239 5-5 5h-5v8h-5V12z" fill="#10B981" />
-                    </svg>
-                    <span className="text-xl font-bold tracking-tight text-emerald-500">Super Admin</span>
+            <div className="h-16 flex items-center justify-center px-6 border-b border-gray-50">
+                <div className="flex items-center gap-2">
+                    <img src={rykenLogo} alt="Ryken Security" className="h-10 w-auto" />
                 </div>
             </div>
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import logoMark from "../../assets/logos/logo-mark.svg";
+import rykenLogo from "../../assets/logos/ryken-logo.png";
 
 interface LoginFormProps {
   onSubmit: (username: string, password: string) => Promise<void>;
@@ -27,12 +27,9 @@ export default function LoginForm({
       <div className="w-full px-4 md:w-[582px]">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 rounded-[4px] p-[40px] border-[rgba(0,0,51,0.0588)]">
           {/* Logo and Brand */}
-          <div className="mb-4">
-            <div className="flex items-center">
-              <img src={logoMark} alt="Procon logo" className="w-10 h-10" />
-              <span className="ml-3 text-2xl font-bold text-primary-600">
-                Procon Gaming
-              </span>
+          <div className="mb-4 text-center">
+            <div className="flex items-center justify-center">
+              <img src={rykenLogo} alt="Ryken Security" className="h-16 w-auto" />
             </div>
             <h2 className="mt-4 text-[20px] font-bold text-black">
               Log in to your account

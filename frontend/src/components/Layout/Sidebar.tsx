@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import logoMark from "../../assets/logos/logo-mark.svg";
+import rykenLogo from "../../assets/logos/ryken-logo.png";
 import dashboardIcon from "../../assets/icons/dashboard.png";
 import alertsIcon from "../../assets/icons/alerts.png";
 import machineIcon from "../../assets/icons/machine.png";
@@ -69,13 +69,10 @@ function Sidebar({ userInfo, onLogout, isOpen = false }: SidebarProps) {
     >
       {/* Logo */}
 
-      <div className="flex items-center justify-center mb-4">
-        <img src={logoMark} alt="Procon logo" className="w-[56px] h-[56px]" />
-        {isOpen && (
-          <span className="font-bold text-[18px] text-[rgba(60,177,121,1)] font-['DM_Sans']">
-            Procon Gaming
-          </span>
-        )}
+      {/* Logo */}
+
+      <div className="flex items-center justify-center mb-4 px-2">
+        <img src={rykenLogo} alt="Ryken Security" className={`object-contain ${isOpen ? "h-16 w-auto" : "h-10 w-10"}`} />
       </div>
 
       {/* Navigation Items */}
